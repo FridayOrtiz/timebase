@@ -1,6 +1,12 @@
 [package]
 name = "timebase"
 version = "0.1.0"
+authors = [
+    "Rafael Ortiz <rortiz12@jhu.edu>",
+    "Ramon Benitez-Pagan <ramon.benitez@jhu.edu>",
+    "Stephen Scally <sscally@jhu.edu>",
+    "Cyrus Bulsara <cbulsar1@jhu.edu>"
+]
 edition = "2018"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
