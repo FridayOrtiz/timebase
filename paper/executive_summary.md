@@ -14,6 +14,7 @@ header-includes:
   - \usepackage{stmaryrd}
   - \usepackage{lastpage}
   - \usepackage{multicol}
+  - \usepackage{supertabular}
   - \newcommand{\hideFromPandoc}[1]{#1}
   - \hideFromPandoc{
       \let\Begin\begin
@@ -174,6 +175,48 @@ Our final deliverables will be:
     1.  Conclusions and Future Work
     1.  Bibliography
 *  A video reviewing the above paper and demonstrating our implementation
+
+## Project Milestones
+
+The milestones are presented in rough expected chronological order.
+
+*  (Milestone 1 - Cyrus) Potential NTP storage channels identified for selection
+*  (Milestone 2 - Stephen) Chosen NTP storage channel(s) identified, designed, and documented
+*  (Milestone 3 - Rafael) BPF XDP filter implemented
+*  (Milestone 4 - Rafael) Receiver application implemented
+*  (Milestone 5 - Ramon) Native receiver methodology documented
+*  (Milestone 6 - Ramon) Techniques to defeat our covert channel documented
+*  (Milestone 7 - Cyrus) Report finalized
+*  (Milestone 8 - Stephen) Video review and demonstration
+
+## Project Timeline
+
+\tablefirsthead{%
+    \hline
+    \hline
+        Milestone & Expected Completion Date \\\hline}
+\begin{supertabular}{|c|c|}
+\hline
+Preliminary Milestones & \\
+\hline
+1 & 12 July 2021 \\
+2 & 19 July 2021 \\
+\hline
+\hline
+Development Milestones & \\
+\hline
+3 & 02 August 2021 \\
+4 & 02 August 2021 \\
+5 & 09 August 2021 \\
+6 & 09 August 2021 \\
+\hline
+\hline
+Report Milestones & \\
+\hline
+7 & 16 August 2021 \\
+8 & 20 August 2021 \\
+\hline
+\end{supertabular}
 
 \End{multicols}
 \End{document}
