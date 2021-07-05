@@ -8,6 +8,7 @@ authors = [
     "Cyrus Bulsara <cbulsar1@jhu.edu>"
 ]
 edition = "2018"
+description = "An NTP based covert channel."
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -19,3 +20,5 @@ slog-term = "2.8.0"
 lazy_static = "1.4.0"
 bytes = "1.0.1"
 mio = { version="0.7.11", features=["os-poll", "os-ext"] }
+clap = "2.33.3"
+pnet = "0.28.0"

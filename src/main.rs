@@ -1,20 +1,24 @@
 use aya::maps::perf::PerfEventArrayBuffer;
-use aya::maps::{Map, MapRefMut, PerfEventArray};
+use aya::maps::{MapRefMut, PerfEventArray};
 use aya::programs::{tc, Link, SchedClassifier, TcAttachType};
 use aya::util::online_cpus;
 use aya::Bpf;
-use bytes::{Buf, BytesMut};
+use bytes::BytesMut;
+use clap::{crate_authors, crate_description, crate_version, App, Arg, SubCommand};
 use lazy_static::lazy_static;
 use mio::unix::SourceFd;
-use mio::{Events, Interest, Poll, Token};
-use slog::{crit, debug, info, o, warn, Drain, Logger};
+use mio::{Events, Interest, Token};
+use pnet::datalink::{Channel, NetworkInterface};
+use slog::{crit, debug, o, warn, Drain, Logger};
 use slog_term::TermDecorator;
-use std::borrow::BorrowMut;
 use std::collections::HashMap;
 use std::convert::{TryFrom, TryInto};
 use std::error::Error;
 use std::os::unix::io::AsRawFd;
 use std::time::Duration;
+
+const ETHERNET_HEADER_LEN: usize = 14;
+const IPV4_HEADER_LEN: usize = 20;
 
 lazy_static! {
     static ref LOGGER: Logger = Logger::root(
@@ -101,7 +105,89 @@ fn load_filter(interface_name: &str) -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
+fn run_client(interface: &str) {
+    let mut pnet_iface: NetworkInterface = NetworkInterface {
+        name: "none".to_string(),
+        description: "".to_string(),
+        index: 0,
+        mac: None,
+        ips: vec![],
+        flags: 0,
+    };
+
+    for iface in pnet::datalink::interfaces() {
+        if iface.name.eq(interface) {
+            pnet_iface = iface;
+            break;
+        }
+    }
+
+    if pnet_iface.name.eq("nonexistent") {
+        panic!("could not find interface: {}", interface);
+    }
+
+    let (_tx, mut rx) = match pnet::datalink::channel(&pnet_iface, Default::default()) {
+        Ok(Channel::Ethernet(tx, rx)) => (tx, rx),
+        Ok(_) => panic!("unknown channel type"),
+        Err(e) => panic!("err: {}", e),
+    };
+
+    println!("Listening on {}", pnet_iface.name);
+
+    loop {
+        let packet = rx.next().unwrap();
+        let tcp_packet = match pnet::packet::tcp::TcpPacket::new(
+            &packet[(ETHERNET_HEADER_LEN + IPV4_HEADER_LEN)..],
+        ) {
+            Some(pkt) => pkt,
+            None => continue,
+        };
+
+        println!("pkt: {:?}", tcp_packet);
+    }
+}
+
 fn main() {
-    debug!(LOGGER, "Starting timebase");
-    load_filter("eth1").unwrap();
+    let matches = App::new("Timebase")
+        .version(crate_version!())
+        .author(crate_authors!("\n"))
+        .about(crate_description!())
+        .subcommand(
+            SubCommand::with_name("client")
+                .about("receive information from the server")
+                .arg(
+                    Arg::with_name("interface")
+                        .short("i")
+                        .long("interface")
+                        .help("the interface to intercept and modify communications on")
+                        .takes_value(true)
+                        .required(true)
+                        .value_name("INTERFACE NAME"),
+                ),
+        )
+        .subcommand(
+            SubCommand::with_name("server")
+                .about("send information to the client")
+                .arg(
+                    Arg::with_name("interface")
+                        .short("i")
+                        .long("interface")
+                        .help("the interface to intercept and modify communications on")
+                        .takes_value(true)
+                        .required(true)
+                        .value_name("INTERFACE NAME"),
+                ),
+        )
+        .get_matches();
+
+    if let Some(matches) = matches.subcommand_matches("server") {
+        debug!(LOGGER, "Starting timebase server.");
+        let interface = matches.value_of("interface").unwrap();
+        load_filter(interface).unwrap();
+    } else if let Some(matches) = matches.subcommand_matches("client") {
+        let interface = matches.value_of("interface").unwrap();
+        run_client(interface);
+    } else {
+        println!("Please specify `client` or `server`.");
+    }
 }
