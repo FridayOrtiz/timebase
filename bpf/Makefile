@@ -1,8 +1,9 @@
 ARCH ?= x86_64
-CC = clang-6.0
-LLC = llc-6.0
-OPT = opt-6.0
-LLVM_DIS = llvm-dis-6.0
+CC = clang-8
+LLC = llc-8
+OPT = opt-8
+LLVM_DIS = llvm-dis-8
+LLVM_OBJCOPY = llvm-objcopy-8
 
 SOURCES ?= filter.c
 
@@ -42,16 +43,18 @@ INCLUDES = -I src/ \
 	-I $(KERNEL_HEADERS_ROOT)/include/generated/uapi
 
 all:
+#	$(CC) $(TARGET) $(CFLAGS) -c $(SOURCES) $(INCLUDES) -o filter_program_$(ARCH)
 	$(CC) $(TARGET) $(CFLAGS) -emit-llvm -c $(SOURCES) $(INCLUDES) -o - | \
 		$(OPT) -O2 -mtriple=bpf-pc-linux | $(LLVM_DIS) | \
-		$(LLC) -march=bpf -filetype=obj -o filter_program_$(ARCH)
+		$(LLC) -march=bpf -filetype=obj -o - | \
+		$(LLVM_OBJCOPY) -R ".BTF" -R ".BTF.ext" - filter_program_$(ARCH)
 
 clean:
 	rm -rf filter_program_*
 
 depends:
 	apt-get update
-	apt-get install -y llvm-6.0 clang-6.0 libclang-6.0-dev \
+	apt-get install -y llvm-8 clang-8 libclang-8-dev \
 		linux-headers-5.4.0-58-generic \
 		make binutils curl coreutils
 

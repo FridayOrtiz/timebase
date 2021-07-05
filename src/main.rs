@@ -1,22 +1,107 @@
-use oxidebpf::{Program, ProgramBlueprint, ProgramGroup, ProgramType, ProgramVersion};
+use aya::maps::perf::PerfEventArrayBuffer;
+use aya::maps::{Map, MapRefMut, PerfEventArray};
+use aya::programs::{tc, Link, SchedClassifier, TcAttachType};
+use aya::util::online_cpus;
+use aya::Bpf;
+use bytes::{Buf, BytesMut};
+use lazy_static::lazy_static;
+use mio::unix::SourceFd;
+use mio::{Events, Interest, Poll, Token};
+use slog::{crit, debug, info, o, warn, Drain, Logger};
+use slog_term::TermDecorator;
+use std::borrow::BorrowMut;
+use std::collections::HashMap;
+use std::convert::{TryFrom, TryInto};
+use std::error::Error;
+use std::os::unix::io::AsRawFd;
+use std::time::Duration;
+
+lazy_static! {
+    static ref LOGGER: Logger = Logger::root(
+        slog_async::Async::new(
+            slog_term::FullFormat::new(TermDecorator::new().build())
+                .build()
+                .fuse(),
+        )
+        .build()
+        .fuse(),
+        o!()
+    );
+}
+
+fn poll_buffers(buf: Vec<PerfEventArrayBuffer<MapRefMut>>) {
+    let mut poll = mio::Poll::new().unwrap();
+
+    let mut out_bufs = [BytesMut::with_capacity(1024)];
+
+    let mut tokens: HashMap<Token, PerfEventArrayBuffer<MapRefMut>> = buf
+        .into_iter()
+        .map(
+            |p| -> Result<(Token, PerfEventArrayBuffer<MapRefMut>), Box<dyn Error>> {
+                let token = Token(p.as_raw_fd() as usize);
+                poll.registry().register(
+                    &mut SourceFd(&p.as_raw_fd()),
+                    token,
+                    Interest::READABLE,
+                )?;
+                Ok((token, p))
+            },
+        )
+        .collect::<Result<HashMap<Token, PerfEventArrayBuffer<MapRefMut>>, Box<dyn Error>>>()
+        .unwrap();
+
+    let mut events = Events::with_capacity(1024);
+    loop {
+        match poll.poll(&mut events, Some(Duration::from_millis(100))) {
+            Ok(_) => {
+                let token_list: Vec<Token> = events
+                    .iter()
+                    .filter(|event| event.is_readable())
+                    .filter_map(|e| Some(e.token()))
+                    .collect();
+                token_list.into_iter().for_each(|t| {
+                    let buf = tokens.get_mut(&t).unwrap();
+                    buf.read_events(&mut out_bufs).unwrap();
+                    debug!(LOGGER, "buf: {:?}", out_bufs.get(0).unwrap());
+                });
+            }
+            Err(e) => {
+                crit!(LOGGER, "critical error: {:?}", e);
+                panic!()
+            }
+        }
+    }
+}
+
+fn load_filter(interface_name: &str) -> Result<(), Box<dyn Error>> {
+    let mut bpf = Bpf::load_file("bpf/filter_program_x86_64")?;
+    if let Err(e) = tc::qdisc_add_clsact(interface_name) {
+        warn!(LOGGER, "Interface already configured: {:?}", e);
+    }
+
+    let prog: &mut SchedClassifier = bpf.program_mut("ntp_filter")?.try_into()?;
+    prog.load()?;
+    let mut linkref = prog.attach(interface_name, TcAttachType::Egress)?;
+    debug!(LOGGER, "NTP filter loaded and attached.");
+
+    let mut perf_array = PerfEventArray::try_from(bpf.map_mut("ntp_filter_events")?)?;
+
+    let mut perf_buffers = Vec::new();
+    for cpuid in online_cpus()? {
+        perf_buffers.push(perf_array.open(cpuid, None)?);
+    }
+
+    // poll the buffers to know when they have queued events
+    poll_buffers(perf_buffers);
+
+    linkref.detach()?;
+
+    debug!(LOGGER, "NTP filter detached.");
+
+    Ok(())
+}
 
 fn main() {
-    let program_blueprint =
-        ProgramBlueprint::new(&std::fs::read("bpf/filter_program_x86_64").unwrap(), None).unwrap();
-    let mut program_group = ProgramGroup::new(
-        program_blueprint,
-        vec![ProgramVersion::new(vec![Program::new(
-            ProgramType::Xdp,
-            "ntp_filter",
-            vec!["eth1"],
-        )])],
-        None,
-    );
-
-    program_group.load().expect("could not load program");
-    let channel = program_group.get_receiver().unwrap();
-    loop {
-        let msg = channel.recv().unwrap();
-        println!("Map name: {}; CPU: {};\nData: {:?}", msg.0, msg.1, msg.2);
-    }
+    debug!(LOGGER, "Starting timebase");
+    load_filter("eth1").unwrap();
 }

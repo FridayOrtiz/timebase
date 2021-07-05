@@ -48,3 +48,9 @@ $ cargo build
 $ cd target/debug
 $ ./timebase
 ```
+
+# Licenses
+
+All Rust code here is distributed under the MIT license. 
+
+The BPF filter program source (`bpf/filter.c`) and subsequent artifacts are distributed under dual MIT/GPL.
