@@ -14,11 +14,14 @@ use slog_term::TermDecorator;
 use std::collections::HashMap;
 use std::convert::{TryFrom, TryInto};
 use std::error::Error;
+use std::fmt::{Display, Formatter};
 use std::os::unix::io::AsRawFd;
 use std::time::Duration;
 
 const ETHERNET_HEADER_LEN: usize = 14;
 const IPV4_HEADER_LEN: usize = 20;
+const UDP_HEADER_LEN: usize = 8;
+const VALUE_LEN: usize = 8;
 
 lazy_static! {
     static ref LOGGER: Logger = Logger::root(
@@ -31,6 +34,36 @@ lazy_static! {
         .fuse(),
         o!()
     );
+}
+
+#[repr(C)]
+struct NtpExtensionless {
+    lvm: u8,
+    stratum: u8,
+    poll: u8,
+    precision: u8,
+    root_delay: u32,
+    root_dispersion: u32,
+    reference_id: u32,
+    reference_ts: u64,
+    originate_ts: u64,
+    receive_ts: u64,
+    transmit_ts: u64,
+}
+
+#[repr(C, align(4))]
+struct ExtensionField {
+    field_type: u16,
+    field_len: u16,
+    value: [u8; VALUE_LEN],
+}
+
+impl Display for ExtensionField {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let value = String::from_utf8(Vec::from(self.value)).map_err(|_| std::fmt::Error)?;
+        let value = value.trim_matches('\0');
+        write!(f, "{}", value)
+    }
 }
 
 fn poll_buffers(buf: Vec<PerfEventArrayBuffer<MapRefMut>>) {
@@ -61,7 +94,7 @@ fn poll_buffers(buf: Vec<PerfEventArrayBuffer<MapRefMut>>) {
                 let token_list: Vec<Token> = events
                     .iter()
                     .filter(|event| event.is_readable())
-                    .filter_map(|e| Some(e.token()))
+                    .map(|e| e.token())
                     .collect();
                 token_list.into_iter().for_each(|t| {
                     let buf = tokens.get_mut(&t).unwrap();
@@ -136,14 +169,26 @@ fn run_client(interface: &str) {
 
     loop {
         let packet = rx.next().unwrap();
-        let tcp_packet = match pnet::packet::tcp::TcpPacket::new(
+        let eth = pnet::packet::ethernet::EthernetPacket::new(packet).unwrap();
+        if eth.get_ethertype() != pnet::packet::ethernet::EtherTypes::Ipv4 {
+            continue;
+        }
+        let udp_packet = match pnet::packet::udp::UdpPacket::new(
             &packet[(ETHERNET_HEADER_LEN + IPV4_HEADER_LEN)..],
         ) {
             Some(pkt) => pkt,
             None => continue,
         };
 
-        println!("pkt: {:?}", tcp_packet);
+        if udp_packet.get_source() == 123 {
+            let payload = &packet[(ETHERNET_HEADER_LEN + IPV4_HEADER_LEN + UDP_HEADER_LEN)..];
+            let extension: ExtensionField = unsafe {
+                std::ptr::read(
+                    payload[std::mem::size_of::<NtpExtensionless>()..].as_ptr() as *const _
+                )
+            };
+            println!("value: {}", extension);
+        }
     }
 }
 
