@@ -16,5 +16,7 @@ echo "192.168.5.3	tb-client" >> /etc/hosts
 echo "192.168.5.2	tb-server" >> /etc/hosts
 
 echo "server tb-server iburst" > /etc/chrony/chrony.conf
+echo 'alias scargo="sudo -E $HOME/.cargo/bin/cargo"' >> ~/.bashrc
+
 systemctl restart chrony.service
 
