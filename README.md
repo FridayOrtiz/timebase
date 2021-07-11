@@ -39,14 +39,32 @@ $ docker-compose run --rm filter-builder
 $ cd ..
 ```
 This will create the `filter_program_x86_64` program object file in the `bpf/` directory.
-Then, you can build the program itself in a Linux VM.
+Then, you can run the program itself in the Linux lab environment. `scargo` is included
+as an alias to run `cargo` as root for convenience.
+
+First, start the lab environment.
 
 ```
-$ vagrant up && vagrant ssh
+$ cd lab/
+$ vagrant up 
+
+```
+
+Then launch the client listener.
+
+```
+$ vagrant ssh client
 $ cd timebase/
-$ cargo build
-$ cd target/debug
-$ ./timebase
+$ scargo run -- client --interface eth1
+```
+
+From a second terminal, launch the server.
+
+```
+$ cd lab/
+$ vagrant ssh server
+$ cd timebase/
+$ scargo run -- server --interface eth1
 ```
 
 # Licenses
