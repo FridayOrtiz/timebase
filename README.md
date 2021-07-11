@@ -47,7 +47,6 @@ First, start the lab environment.
 ```
 $ cd lab/
 $ vagrant up 
-
 ```
 
 Then launch the client listener.
