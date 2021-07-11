@@ -68,10 +68,7 @@ $ scargo run -- server --interface eth1
 
 ### Demo
 
-Here's the above steps as a lovely six minute SVG. Or you can watch on 
-[asciinema](https://asciinema.org/a/xaaxwcaAbWPCe71C8osFIs77I).
-
-![demo](demo.svg)
+[![asciicast](https://asciinema.org/a/xaaxwcaAbWPCe71C8osFIs77I.svg)](https://asciinema.org/a/xaaxwcaAbWPCe71C8osFIs77I)
 
 # Licenses
 
