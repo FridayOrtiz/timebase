@@ -128,21 +128,31 @@ the DMZ NTP server is at stratum $2$, and internal devices are at stratum $3$.
 # Project Summary
 
 We are proposing the creation of an extended Berkeley Packet Filter (BPF)
-eXpress Data Path (XDP) filter that can be layered on top of existing NTP
+Traffic Control (TC) classifier (also known as a filter) that can be layered 
+on top of existing NTP
 servers, or on routers between an NTP server and the target client, that can
 modify NTP server replies such that data may be infiltrated into secure 
 networks. We will consider prior art on NTP covert channels and NTP as a
 covert storage cache and device a method for data infiltration in one
 or both of the two scenarios.
 
-After identifying a potential covert channel for one or both scenarios, we
+The chosen methodology for the Direct Access NTP scenario is the use of
+NTP extension fields. NTP allows for extension fields for proprietary
+add-ons to NTP, such as authentication, that implementators may use.
+Middleboxes are instructed by the RFC to not interfere or alter in any way
+the contents of these extension fields, as doing so may break NTP
+implementations which could lead to a denial of NTP service on the network the 
+middlebox is protecting. Denial of NTP can be abused by attackers to
+do Very Bad Things, and should be avoided.
+
+With the potential covert channel identified, we
 will fully define and document the channel. We will pay attention to factors
 such as: channel bandwidth, channel resiliance, channel covertness, and so on.
 
 After defining the channel, we will implement and test the channel in a
-virtual environment. There will likely be two components to the channel,
-an XDP filter and a receiver application that can decode received information.
-Ideally, we will be able to build the receiver with nothing but tools
+virtual environment. There will be two components to the channel,
+a TC filter and a receiver application that can decode received information.
+Ideally, we will build the receiver with nothing but tools
 available on the target machine, requiring no outside applications. However,
 for the purposes of this paper, we will consider the infiltration of data
 into a secure network as "good enough," and leave data reconstruction as
@@ -156,10 +166,10 @@ added or removed as necessary.
 1. Study prior art on NTP storage channels and NTP covert caches
 1. Identify potential NTP storage channels that satisfy the following criteria:
     *  Do not noticeably interfere with normal NTP functionality
-    *  (Optionally) survive a stratum layer
 1. Design and document one or more covert channels that meet these criteria
-1. Implement the channel as a BPF XDP filter, with a receiver application
-    *  Document a method to reconstitute data using nothing but OS native utilities
+1. Implement the channel as a BPF TC filter, with a receiver application
+    *  (optionally) Document a method to reconstitute data using nothing but 
+OS native utilities
 1. Demonstrate our implementation working in a virtual machine environment
 
 Our final deliverables will be:
@@ -180,14 +190,14 @@ Our final deliverables will be:
 
 The milestones are presented in rough expected chronological order.
 
-*  (Milestone 1 - Cyrus) Potential NTP storage channels identified for selection
-*  (Milestone 2 - Stephen) Chosen NTP storage channel(s) identified, designed, and documented
-*  (Milestone 3 - Rafael) BPF XDP filter implemented
-*  (Milestone 4 - Rafael) Receiver application implemented
-*  (Milestone 5 - Ramon) Native receiver methodology documented
-*  (Milestone 6 - Ramon) Techniques to defeat our covert channel documented
+*  (Milestone 1 - Cyrus) Potential NTP storage channels identified for selection (complete)
+*  (Milestone 2 - Stephen) Chosen NTP storage channel(s) identified, designed, and documented (in progress)
+*  (Milestone 3 - Rafael) BPF TC filter implemented (in progress)
+*  (Milestone 4 - Rafael) Receiver application implemented (in progress)
+*  (Milestone 5 - Stephen) Native receiver methodology documented
+*  (Milestone 6 - Cyrus) Techniques to defeat our covert channel documented
 *  (Milestone 7 - Cyrus) Report finalized
-*  (Milestone 8 - Stephen) Video review and demonstration
+*  (Milestone 8 - Stephen & Rafael) Video review and demonstration
 
 ## Project Timeline
 
