@@ -11,14 +11,18 @@
 #define IPPROTO_UDP 17
 #define VALUE_LEN 8
 
+static void *(*bpf_map_lookup_elem)(void *map, void *key) =
+	(void *)1;
+static int (*bpf_map_update_elem)(void *map, void *key, void *value, unsigned long long flags) =
+	(void *)2;
 static unsigned long long (*bpf_get_smp_processor_id)(void) =
-    (void *)8;
-static int (*bpf_perf_event_output)(void *ctx, void *map, unsigned long long flags, void *data, int size) =
-    (void *)25;
+	(void *)8;
 static int (*bpf_skb_store_bytes)(struct __sk_buff *skb, u32 offset, const void *from, u32 len, u64 flags) =
-    (void *)9;
+	(void *)9;
+static int (*bpf_perf_event_output)(void *ctx, void *map, unsigned long long flags, void *data, int size) =
+	(void *)25;
 static int (*bpf_skb_change_tail)(struct __sk_buff *skb, u32 len, u64 flags) =
-    (void *)38;
+	(void *)38;
 
 struct bpf_map_def {
     unsigned int type;
@@ -38,6 +42,26 @@ struct bpf_map_def ntp_filter_events __attribute__((section("maps/ntp_filter_eve
         .map_flags = 0,
         .id = 0,
         .pinning = 0,
+};
+
+struct bpf_map_def msg_ctr __attribute__((section("maps/msg_ctr"), used)) = {
+	.type = BPF_MAP_TYPE_ARRAY,
+	.key_size = sizeof(u32),
+	.value_size = sizeof(u32),
+	.max_entries = 1,
+	.map_flags = 0,
+	.id = 0,
+	.pinning = 0,
+};
+
+struct bpf_map_def msg_array __attribute__((section("maps/msg_array"), used)) = {
+	.type = BPF_MAP_TYPE_ARRAY,
+	.key_size = sizeof(u32),
+	.value_size = sizeof(u64),
+	.max_entries = 32,
+	.map_flags = 0,
+	.id = 0,
+	.pinning = 0,
 };
 
 struct ntp_filter_event {
@@ -85,11 +109,27 @@ __attribute__((section("classifier/ntp_filter"), used)) int ntp_filter(struct __
 		if ((void *) ntp + sizeof(*ntp) > data_end)
 			return TC_ACT_OK;
 
+		u32 key = 0;
+		u32 *idx = bpf_map_lookup_elem(&msg_ctr, &key);
+		if (!idx) {
+			bpf_map_update_elem(&msg_ctr, &key, &key, BPF_ANY);
+			return TC_ACT_OK;
+		}
+
+		u64 *msg = bpf_map_lookup_elem(&msg_array, idx);
+		if (!msg)
+			return TC_ACT_OK;
+
+		u8 * bytes = (u8 *) msg;
+		u8 value[VALUE_LEN] = {
+			*bytes, *(bytes + 1), *(bytes + 2), *(bytes + 3),
+			*(bytes + 4), *(bytes + 5), *(bytes + 6), *(bytes + 7),
+		};
+
+		(*idx) += 1;
+		bpf_map_update_elem(&msg_ctr, &key, idx, BPF_ANY);
+
 		u32 offset = sizeof(*eth) + sizeof(*ip) + sizeof(*udp) + sizeof(*ntp);
-		//u32 idx = ctx->ifindex;
-		//u32 dst = udp->source;
-		u32 ret = 0;
-		//udp->dest = 0xdead;
 
 		struct extension_field ef = {
 		    /* *******************************************************
@@ -102,10 +142,12 @@ __attribute__((section("classifier/ntp_filter"), used)) int ntp_filter(struct __
 		     *              VVV     V                                */
 		    .field_type = 0b1000000000000000,
 		    .field_len = sizeof(struct extension_field),
-		    .value = {0, 0, 'H', 'E', 'L', 'L', 'O', '!'},
+		    .value = {0},
 		};
 
-		ret = bpf_skb_change_tail(ctx, offset + sizeof(struct extension_field), 0);
+		__builtin_memcpy(&ef.value, &value, VALUE_LEN);
+
+		u32 ret = bpf_skb_change_tail(ctx, offset + sizeof(struct extension_field), 0);
 
 		struct ntp_filter_event tail_ev = {
 			.retcode = ret,
