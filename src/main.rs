@@ -3,7 +3,6 @@ use aya::maps::{MapRefMut, PerfEventArray};
 use aya::programs::{tc, Link, SchedClassifier, TcAttachType};
 use aya::util::online_cpus;
 use aya::Bpf;
-use byteorder::{LittleEndian, ReadBytesExt};
 use bytes::BytesMut;
 use clap::{crate_authors, crate_description, crate_version, App, Arg, SubCommand};
 use lazy_static::lazy_static;
@@ -22,7 +21,15 @@ use std::time::Duration;
 const ETHERNET_HEADER_LEN: usize = 14;
 const IPV4_HEADER_LEN: usize = 20;
 const UDP_HEADER_LEN: usize = 8;
-const VALUE_LEN: usize = 8;
+const VALUE_LEN: usize = 99;
+
+#[repr(C)]
+#[derive(Copy, Clone)]
+struct DataChunk {
+    data: [u8; VALUE_LEN],
+}
+
+unsafe impl aya::Pod for DataChunk {}
 
 lazy_static! {
     static ref LOGGER: Logger = Logger::root(
@@ -61,9 +68,7 @@ struct ExtensionField {
 
 impl Display for ExtensionField {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        let value = String::from_utf8(Vec::from(self.value)).map_err(|_| std::fmt::Error)?;
-        let value = value.trim_matches('\0');
-        write!(f, "{}", value)
+        write!(f, "{}", hex::encode(self.value))
     }
 }
 
@@ -92,16 +97,15 @@ fn poll_buffers(buf: Vec<PerfEventArrayBuffer<MapRefMut>>) {
     loop {
         match poll.poll(&mut events, Some(Duration::from_millis(100))) {
             Ok(_) => {
-                let token_list: Vec<Token> = events
+                events
                     .iter()
                     .filter(|event| event.is_readable())
                     .map(|e| e.token())
-                    .collect();
-                token_list.into_iter().for_each(|t| {
-                    let buf = tokens.get_mut(&t).unwrap();
-                    buf.read_events(&mut out_bufs).unwrap();
-                    debug!(LOGGER, "buf: {:?}", out_bufs.get(0).unwrap());
-                });
+                    .for_each(|t| {
+                        let buf = tokens.get_mut(&t).unwrap();
+                        buf.read_events(&mut out_bufs).unwrap();
+                        debug!(LOGGER, "buf: {:?}", out_bufs.get(0).unwrap());
+                    });
             }
             Err(e) => {
                 crit!(LOGGER, "critical error: {:?}", e);
@@ -111,8 +115,9 @@ fn poll_buffers(buf: Vec<PerfEventArrayBuffer<MapRefMut>>) {
     }
 }
 
-fn load_filter(interface_name: &str, message: &str) -> Result<(), Box<dyn Error>> {
+fn load_filter(interface_name: &str) -> Result<(), Box<dyn Error>> {
     let mut bpf = Bpf::load_file("bpf/filter_program_x86_64")?;
+    let file_bytes = std::fs::read("bpf/filter_program_x86_64")?;
     if let Err(e) = tc::qdisc_add_clsact(interface_name) {
         warn!(LOGGER, "Interface already configured: {:?}", e);
         warn!(
@@ -122,22 +127,22 @@ fn load_filter(interface_name: &str, message: &str) -> Result<(), Box<dyn Error>
         warn!(LOGGER, "You can probably ignore this.");
     }
 
-    debug!(LOGGER, "Writing '{}' to map.", message);
-    let mut msg_array = aya::maps::Array::<MapRefMut, u64>::try_from(bpf.map_mut("msg_array")?)?;
+    debug!(LOGGER, "Writing '{:x?}' to map.", file_bytes);
+    let mut msg_array =
+        aya::maps::Array::<MapRefMut, DataChunk>::try_from(bpf.map_mut("msg_array")?)?;
     let mut idx = 0;
-    message
-        .as_bytes()
-        .chunks(VALUE_LEN)
-        .into_iter()
-        .for_each(|ch| {
-            let mut ch = ch.to_vec();
-            for _ in ch.len()..8 {
-                ch.extend_from_slice(&[0u8]);
-            }
-            let ch = ch.as_slice().read_u64::<LittleEndian>().unwrap();
-            msg_array.set(idx, ch, 0).expect("could not write to map");
-            idx += 1;
-        });
+    file_bytes.chunks(VALUE_LEN).into_iter().for_each(|ch| {
+        let mut ch = ch.to_vec();
+        for _ in ch.len()..VALUE_LEN {
+            ch.extend_from_slice(&[0u8]);
+        }
+        let ch = ch.as_slice(); //.read_u64::<LittleEndian>().unwrap();
+        let mut data = [0u8; VALUE_LEN];
+        data.copy_from_slice(ch);
+        let d = DataChunk { data };
+        msg_array.set(idx, d, 0).expect("could not write to map");
+        idx += 1;
+    });
 
     let prog: &mut SchedClassifier = bpf.program_mut("ntp_filter")?.try_into()?;
     prog.load()?;
@@ -244,15 +249,6 @@ fn main() {
                         .takes_value(true)
                         .required(true)
                         .value_name("INTERFACE NAME"),
-                )
-                .arg(
-                    Arg::with_name("message")
-                        .short("m")
-                        .long("message")
-                        .help("the message to send")
-                        .takes_value(true)
-                        .required(true)
-                        .value_name("'MESSAGE'"),
                 ),
         )
         .get_matches();
@@ -260,8 +256,7 @@ fn main() {
     if let Some(matches) = matches.subcommand_matches("server") {
         debug!(LOGGER, "Starting timebase server.");
         let interface = matches.value_of("interface").unwrap();
-        let message = matches.value_of("message").unwrap();
-        load_filter(interface, message).unwrap();
+        load_filter(interface).unwrap();
     } else if let Some(matches) = matches.subcommand_matches("client") {
         let interface = matches.value_of("interface").unwrap();
         run_client(interface);
