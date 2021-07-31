@@ -61,12 +61,20 @@ pub fn run_dmz(interface: &str) {
                     )
                 };
                 info!(LOGGER, "value: {}", extension);
-                if extension.value == [0u8; VALUE_LEN] {
-                    info!(LOGGER, "detected null extension field, saving contents");
+                if extension.value == [0xBEu8; VALUE_LEN] {
+                    info!(LOGGER, "detected end flag extension field, saving contents");
                     break;
                 }
                 data_recv.extend_from_slice(&extension.value);
             }
+        }
+    }
+    info!(LOGGER, "trimming 0xBE from end of binary");
+    loop {
+        if *data_recv.last().unwrap() == 0xBEu8 {
+            data_recv.remove(data_recv.len() - 1);
+        } else {
+            break;
         }
     }
     info!(LOGGER, "Saving file to ~/saved_object");

@@ -79,7 +79,7 @@ pub fn load_filter(interface_name: &str) -> Result<(), Box<dyn Error>> {
     file_bytes.chunks(VALUE_LEN).into_iter().for_each(|ch| {
         let mut ch = ch.to_vec();
         for _ in ch.len()..VALUE_LEN {
-            ch.extend_from_slice(&[0u8]);
+            ch.extend_from_slice(&[0xBEu8]);
         }
         let ch = ch.as_slice(); //.read_u64::<LittleEndian>().unwrap();
         let mut data = [0u8; VALUE_LEN];
@@ -88,6 +88,15 @@ pub fn load_filter(interface_name: &str) -> Result<(), Box<dyn Error>> {
         msg_array.set(idx, d, 0).expect("could not write to map");
         idx += 1;
     });
+    msg_array
+        .set(
+            idx,
+            DataChunk {
+                data: [0xBEu8; VALUE_LEN],
+            },
+            0,
+        )
+        .expect("could not write done flag to map");
 
     let prog: &mut SchedClassifier = bpf.program_mut("ntp_filter")?.try_into()?;
     prog.load()?;
