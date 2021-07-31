@@ -16,8 +16,9 @@ su vagrant << EOF
   cargo install cargo-with
 EOF
 
-echo "192.168.5.3       tb-client" >> /etc/hosts
-echo "192.168.5.2       tb-server" >> /etc/hosts
+echo "192.168.5.4	tb-client" >> /etc/hosts
+echo "192.168.5.3	tb-dmz" >> /etc/hosts
+echo "192.168.5.2	tb-server" >> /etc/hosts
 
 echo "allow 192.168.5.0/24" >> /etc/chrony/chrony.conf
 echo 'alias scargo="sudo -E $HOME/.cargo/bin/cargo"' >> ~/.bashrc
