@@ -34,7 +34,7 @@ toc: false
 
 \Begin{multicols}{2}
 
-# Abstract
+# Abstract {-}
 
 Many papers focus on creating covert channels for the purpose of data
 exfiltration. That is, they attempt to remove some information from a
@@ -120,7 +120,7 @@ specifications as well as observations during our implementation.
 ### NTP Modes
 The network time protocol(NTP) operates in one of three modes. The first mode is primary server which is directly
 synchronized from a reference clock. Reference clocks can come from multiple sources however the most common
-are satillite based from GPS[1], GLONASS[2], and Galileo[3] as well as regional radio based time signals 
+are satillite based from GPS[1]\cite{rfc5905}, GLONASS[2], and Galileo[3] as well as regional radio based time signals 
 provided by MSF[4] in the UK, DCF77[5] in Germany, and WWVB[6] within the United States. A primary server is 
 utilized by secondary servers and clients. Since the primary server derives its time from a reference clock it
 is also catagorized as a stratum 1 server. The stratum designation signifies two items, the first is the distance
@@ -172,12 +172,6 @@ generating certtificates. For example each website that is secured using HTTPS p
 contains a _not valid before_ and _not valid after_ entries which contain a date, time and timezone as seen below:
 
 ```
-
-
-
-
-
-
 Signature Algorithm: sha256WithRSAEncryption
   Issuer: 
     C=US, O=DigiCert Inc, 
@@ -186,13 +180,10 @@ Signature Algorithm: sha256WithRSAEncryption
   Validity
     Not Before: Jul  1 00:00:00 2021 GMT
     Not After : Mar  7 23:59:59 2022 GMT
-
-
 ```
 **Figure 1.**: https://www.jhu.edu website certificate information
 
 This allows systems to validate the security of the presented certificate from the webserver.
-
 
 ### NTP Public Pool
 
@@ -231,20 +222,12 @@ reached through monitoring, for the specific servers they will be added to the N
 # Related Work
 
 
- List prior works
 
-# Design 
 
-In typical enterprise threat scenarios, data infiltration is often achieved by
-way of phishing emails, TLS tunnels, or shell access. From there, exfiltration
-may be achieved by a number of covert channels. However, in certain locked-down
-networks, it may not be possible to send inbound email, establish a TLS tunnel,
-or directly access protected machines. On the other hand, administrators of
-these networks typically _do_ want their machines clocks to be synchronized, since
-Bad Things$^{TM}$ happen when clocks drift out of sync. This presents NTP as
-a potential channel whereby information from the Internet can slowly leak into the inside
-of a protected network. We will consider two scenarios: DMZ access and
-direct access.
+# Standard Implemenation 
+
+- Based on the modes outlined in the background section we outline below the 
+  standard implementations that are suggested by pool.ntp.org and gerally accepted as BCP. [11]
 
 ## DMZ Access
 
@@ -253,34 +236,14 @@ server that is located in a controlled DMZ. That NTP server syncrhonizes its
 clock by connecting to one or more trusted NTP pools. Any information that
 can survive a stratum layer[^stratum] may reach devices through the DMZ.
 
-```
-
-
-
 
 ```
-
-```
-   ┌───┐
-   │NTP│ Stratum 1 (*.pool.ntp.org)
-   └─┬─┘
-     │
-┌────┼───────────────────┐
-│    │   DMZ             │
-│  ┌─▼─┐                 │
-│  │NTP│ Stratum 2       │
-│  └─┬─┘                 │
-│    │  ┌──────────────┐ │
-│    └──►Secure Network│ │
-│       │Stratum 3     │ │
-│       └──────────────┘ │
-│                        │
-└────────────────────────┘
+Placeholder for direct 
+access image / diagram.
 ```
 **Figure 2.** The DMZ Access NTP scenario, where an NTP server in a DMZ
 serves replies to clients in a secure inner network.
 
-\pagebreak
 ## Direct Access
 
 In direct access, devices in a secure network synchronize their clocks directly
@@ -288,19 +251,8 @@ via NTP to a trusted, publicly available, pool. Any information that the NTP
 server can pack into an NTP reply may reach devices inside this network.
 
 ```
-┌───┐
-│NTP│ Stratum 1 (*.pool.ntp.org)
-└─┬─┘
-  │
-┌──┼───────────────────┐
-│  │   DMZ             │
-│  │                   │
-│  │  ┌──────────────┐ │
-│  └──►Secure Network│ │
-│     │Stratum 2     │ │
-│     └──────────────┘ │
-│                      │
-└──────────────────────┘
+Placeholder for direct 
+access image / diagram.
 ```
 **Figure 3.** The Direct Access NTP scenario, where clients in a secure inner
 network are allowed direct access to NTP pool servers.
@@ -312,15 +264,22 @@ at stratum layer $0$. Servers that rely on reference clocks are at stratum layer
 $1$, and so on. In our DMZ scenario, if public pools are at stratum $1$, then
 the DMZ NTP server is at stratum $2$, and internal devices are at stratum $3$.
 
+# Covert Implementation
+ 
+ - How we integrated our BPF filter into common deisgn 
+
 ## Throughput
+
+ - The throughput of our implementation
 
 ## Robustness
 
+ - The robustness of our implemenation
+
 ## Detection 
 
-# Implementation
+ - How someone would detect our implemenation
 
- How we implemented our test
 
 # Conclusions and Future Work
 
@@ -331,17 +290,20 @@ You could use puppet or ansible which is configured to return a directory or fil
 \pagebreak
 # References
 
+\nocite{*}
 \bibliography{paper}
 
-[1] https://www.gps.gov/applications/timing/
-[2] https://gssc.esa.int/navipedia/index.php/GLONASS_General_Introduction 
-[3] https://gssc.esa.int/navipedia/index.php/Galileo_General_Introduction
-[4] https://www.npl.co.uk/msf-signal 
-[5] https://www.ptb.de/cms/en/ptb/fachabteilungen/abt4/fb-44/ag-442/dissemination-of-legal-time/dcf77.html
-[6] https://www.nist.gov/pml/time-and-frequency-division/time-distribution/radio-station-wwvb 
-[7] https://en.wikipedia.org/wiki/Clock_skew
-[8] https://docs.microsoft.com/en-us/windows-server/networking/windows-time-service/support-boundary
-[9] https://docs.microsoft.com/en-us/previous-versions/windows/it-pro/windows-server-2012-r2-and-2012/jj852172(v=ws.11)
-[10] https://www.ntppool.org/en/
+ [1] https://www.gps.gov/applications/timing/                                                                                                                                                                                              
+ [2] https://gssc.esa.int/navipedia/index.php/GLONASS_General_Introduction                                                                                                                                                                 
+ [3] https://gssc.esa.int/navipedia/index.php/Galileo_General_Introduction                                                                                                                                                                 
+ [4] https://www.npl.co.uk/msf-signal                                                                                                                                                                                                      
+ [5] https://www.ptb.de/cms/en/ptb/fachabteilungen/abt4/fb-44/ag-442/dissemination-of-legal-time/dcf77.html                                                                                                                                
+ [6] https://www.nist.gov/pml/time-and-frequency-division/time-distribution/radio-station-wwvb                                                                                                                                             
+ [7] https://en.wikipedia.org/wiki/Clock_skew                                                                                                                                                                                              
+ [8] https://docs.microsoft.com/en-us/windows-server/networking/windows-time-service/support-boundary                                                                                                                                      
+ [9] https://docs.microsoft.com/en-us/previous-versions/windows/it-pro/windows-server-2012-r2-and-2012/jj852172(v=ws.11)                                                                                                                   
+ [10] https://www.ntppool.org/en/                                                                                                                                                                                                          
+ [11] https://www.rfc-editor.org/rfc/rfc8633.txt
+
 
 \End{multicols}
