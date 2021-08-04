@@ -50,7 +50,7 @@ channel for infiltrating unauthorized information into a secure network.
 
 # Introduction
 
-Covert channels are traditionally classifications as either storage or timing
+Covert channels are traditionally classified as either storage or timing
 channels.  These classifications came about from definitions outlined in the
 Pink book. These definitions are listed below:
 
@@ -58,6 +58,8 @@ _Definition 1_:
 
 A communication channel is covert if it was neither designed or intended to
 transfer information at all. [Pink book section 2.1]
+
+**TODO**: convert these to proper bibtex citations
 
 _Definition 2_:
 
@@ -90,17 +92,17 @@ create a covert channel  for data infiltration.
 There are a number of network architectures that enterprises and device
 manufacturers utilize in order to have network connected devices synchronize
 their system time. We reason that most security controls within these
-architectures focus on ensuring that only network time servers are accessed
-externally, over the appropriate protocol UDP and port 123, and that host are
-mostly clients of higher tiered stratum layer servers. Due to the default trust
-associated with NTP very few operators validate the public NTP pool servers they
-connect to or the time data that is retrieved and possibly propagated throughout
-the network from servers to clients.
+architectures focus on ensuring that access is only allowed to appropriate 
+network time servers, over the protocol UDP and port 123, and that public
+network time servers are themselves clients of higher tiered stratum layer
+servers. Due to the default trust associated with NTP very few operators
+validate the public NTP pool servers they connect to or the time data that is
+retrieved and propagated throughout the network from servers to clients.
 
 In order to address these security concerns as well as control NTP delivery,
 enterprises have deployed dedicated vendor appliances while device manufacturers
 have removed the ability to change time sources on certain devices. Furthermore,
-adding to the lower scrutiny of NTP usage, CVE's and exploits are typically
+adding to the lower scrutiny of NTP usage, CVEs and exploits are typically
 directed at public NTP instances acting as time sources, with attacks in the
 form of DDoS and reflective type attacks.  While it can be beneficial for an
 adversary to attack an internal time source as these disruptions can affect
@@ -127,28 +129,40 @@ observations during our implementation.
 
 ### NTP Modes
 
-The network time protocol(NTP) operates in one of three modes. The first mode is
-primary server which is directly synchronized from a reference clock. Reference
-clocks can come from multiple sources however the most common are satillite
-based from GPS[1], GLONASS[2], and Galileo[3] as well as regional radio based
-time signals provided by MSF[4] in the UK, DCF77[5] in Germany, and WWVB[6]
-within the United States. A primary server is utilized by secondary servers and
-clients. Since the primary server derives its time from a reference clock it is
-also catagorized as a stratum 1 server. The stratum designation signifies two
-items, the first is the distance that the server is from a reference
-clock(stratum 0), in this case one hop, and that this server provides a high
-level of time accuracy. The second mode is being a secondary server. This mode
-operates as a client to upstream primary servers and as a server to downsteam
-clients. There is an defined maximum of 16 stratum levels and each secondary 
-server will reflect their level depending on how far they are from a primary
-server. Each increased stratum level indicates a decrease time accuracy from the
-the higher level time source. Any system reporting a stratum level of 16 is
-understood to be unsynchronized. Lastly the third mode is client to which most
-devices fall under.  A client references time from multiple available time
-sources to synchronize its system time. A client does not act as a time source
-to devices and has no defined stratum level.
+The network time protocol(NTP) operates in one of three modes. 
+
+#### Primary Server
+
+The first mode is primary server which is directly synchronized from a reference
+clock. Reference clocks can come from multiple sources however the most common
+are satillite based from GPS[1], GLONASS[2], and Galileo[3] as well as regional
+radio based time signals provided by MSF[4] in the UK, DCF77[5] in Germany, and
+WWVB[6] within the United States. A primary server is utilized by secondary
+servers and clients. Since the primary server derives its time from a reference
+clock it is also categorized as a stratum 1 server. The stratum designation
+signifies two items, the first is the distance that the server is from a
+reference clock(stratum 0), in this case one hop, and that this server provides
+a high level of time accuracy. 
+
+#### Secondary Server
+
+The second mode is being a secondary server. This
+mode operates as a client to upstream primary servers and as a server to
+downstream clients. There is a defined maximum of 16 stratum levels and each
+secondary server will reflect their level depending on how far they are from a
+primary server. Each increased stratum level indicates a decrease time accuracy
+from the the higher level time source. Any system reporting a stratum level of
+16 is understood to be unsynchronized. 
+
+#### Client
+
+Lastly the third mode is client to which
+most devices fall under.  A client references time from multiple available time
+sources to synchronize its system time.
 
 ### NTP Uses
+
+// TODO: this section can be cut down if we need space
 
 While accurate time is useful the question remains about why it is needed for
 devices such as computers, phones and within local area networks. Most if not
@@ -231,11 +245,11 @@ the webserver.
 
 ### NTP Public Pool
 
-As outlined above, synchronized time utilizing NTP is depended upon by numerous
-services and security mechanisms within typical network architectures. To
-support this need for accurate time, public time sources are provided by the NTP
-pool project[10].  Servers are allocated in DNS round robin allocations where
-each client requesting a forward lookup of the following:
+Synchronized time utilizing NTP is depended upon by numerous services and
+security mechanisms within typical network architectures. To support this need
+for accurate time, public time sources are provided by the NTP pool project[10].
+Servers are allocated by DNS round robin, where each client requests a forward
+lookup of one of the following:
 
 - 0.pool.ntp.org
 - 1.pool.ntp.org
@@ -260,9 +274,11 @@ South America & south-america.pool.ntp.org \\
 \hline
 \end{supertabular}
 
+// TODO: what does "score of 10" mean?
+
 The available servers in the pool are volunteered by research organizations,
 companies, and individuals helping to support the project. In order to add a
-server to the available pool you must have a static ip address and a stable
+server to the available pool you must have a static IP address and a stable
 internet connection. If that criteria is met, you can configure your NTP servers
 with a known good stratum 1 or 2 servers and make the appropriate firewall
 allowances. To add the severs to the available pool, account registration is
@@ -275,6 +291,8 @@ monitoring, for the specific servers they will be added to the NTP time cluster.
  List prior works
 
 # Design 
+
+// TODO: I'll rewrite this section with my implementation details
 
 In typical enterprise threat scenarios, data infiltration is often achieved by
 way of phishing emails, TLS tunnels, or shell access. From there, exfiltration
