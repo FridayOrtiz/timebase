@@ -9,7 +9,10 @@
 #include <uapi/linux/pkt_cls.h>
 
 #define IPPROTO_UDP 17
-#define VALUE_LEN 8
+/* This value was determined experimentally, increasing it will exceed BPF
+ * stack limits
+ */
+#define VALUE_LEN 99
 
 static void *(*bpf_map_lookup_elem)(void *map, void *key) =
 	(void *)1;
@@ -57,8 +60,8 @@ struct bpf_map_def msg_ctr __attribute__((section("maps/msg_ctr"), used)) = {
 struct bpf_map_def msg_array __attribute__((section("maps/msg_array"), used)) = {
 	.type = BPF_MAP_TYPE_ARRAY,
 	.key_size = sizeof(u32),
-	.value_size = sizeof(u64),
-	.max_entries = 32,
+	.value_size = VALUE_LEN,
+	.max_entries = 256,
 	.map_flags = 0,
 	.id = 0,
 	.pinning = 0,
@@ -116,15 +119,13 @@ __attribute__((section("classifier/ntp_filter"), used)) int ntp_filter(struct __
 			return TC_ACT_OK;
 		}
 
-		u64 *msg = bpf_map_lookup_elem(&msg_array, idx);
+		u8 *msg = bpf_map_lookup_elem(&msg_array, idx);
 		if (!msg)
 			return TC_ACT_OK;
 
-		u8 * bytes = (u8 *) msg;
-		u8 value[VALUE_LEN] = {
-			*bytes, *(bytes + 1), *(bytes + 2), *(bytes + 3),
-			*(bytes + 4), *(bytes + 5), *(bytes + 6), *(bytes + 7),
-		};
+		u8 value[VALUE_LEN] = {0};
+
+		__builtin_memcpy(&value, msg, VALUE_LEN);
 
 		(*idx) += 1;
 		bpf_map_update_elem(&msg_ctr, &key, idx, BPF_ANY);
