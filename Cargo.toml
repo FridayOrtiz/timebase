@@ -13,7 +13,7 @@ description = "An NTP based covert channel."
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-aya = "0.10.2"
+aya = {version = "0.10.3", features=["default"]}
 slog = "2.7.0"
 slog-async = "2.6.0"
 slog-term = "2.8.0"
@@ -23,3 +23,4 @@ mio = { version="0.7.11", features=["os-poll", "os-ext"] }
 clap = "2.33.3"
 pnet = "0.28.0"
 byteorder = "1.4.3"
+hex = "0.4.3"
