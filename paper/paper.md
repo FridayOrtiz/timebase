@@ -131,7 +131,7 @@ observations during our implementation.
 
 The network time protocol(NTP) operates in one of three modes. 
 
-#### Primary Server
+### Primary Server
 
 The first mode is primary server which is directly synchronized from a reference
 clock. Reference clocks can come from multiple sources however the most common
@@ -144,7 +144,7 @@ signifies two items, the first is the distance that the server is from a
 reference clock(stratum 0), in this case one hop, and that this server provides
 a high level of time accuracy. 
 
-#### Secondary Server
+### Secondary Server
 
 The second mode is being a secondary server. This
 mode operates as a client to upstream primary servers and as a server to
@@ -154,7 +154,7 @@ primary server. Each increased stratum level indicates a decrease time accuracy
 from the the higher level time source. Any system reporting a stratum level of
 16 is understood to be unsynchronized. 
 
-#### Client
+### Client
 
 Lastly the third mode is client to which
 most devices fall under.  A client references time from multiple available time
@@ -265,21 +265,71 @@ South America & south-america.pool.ntp.org \\
 \hline
 \end{supertabular}
 
-// TODO: what does "score of 10" mean?
-
 The available servers in the pool are volunteered by research organizations,
 companies, and individuals helping to support the project. In order to add a
 server to the available pool you must have a static IP address and a stable
-internet connection. If that criteria is met, you can configure your NTP servers
+Internet connection. If that criteria is met, you can configure your NTP servers
 with a known good stratum 1 or 2 servers and make the appropriate firewall
 allowances. To add the severs to the available pool, account registration is
-needed at ntppool.org, and after a point score of 10 has been reached through
-monitoring, for the specific servers they will be added to the NTP time cluster.
+needed at ntppool.org. Once you have added your server(s) to the pool they are 
+monitored for connectivity and timing accuracy. The ntp project scores systems
+as part of their monitoring and once a system reaches 20 points it can be added to
+the public pool. If a server drops below a score of 10 it is removed from the public
+pool availability.
 
 # Related Work
 
+While the intial specification for NTP was published in 1985[12] there has been minimal  
+public analysis into using the NTP protocol as a covert channel. The first implementation by
+Halvemaan and Lahaye utilizes a NTP covert channel through tunneling, called NTPTunnel. This
+type of channel is also observed with other common protocols such as DNS with Iodine as well
+as TCP and ICMP with PTunnel. NTPTunnel utilizes the Field Type value within the NTP header
+to build the intial client / server connection.  A modified Pytun implemenation listens for
+a specific client NTP packet with the extension field, _field type_ value of FF(hex) 00(hex) 
+to which it will respond to the client with a _field type_ value of 00(hex) FF(hex). 
+This exchage allows the client and server to discover each other without any pre-shared details. 
+After the tunnel is established, crafted NTP packets are sent between the server and client over 
+the tunnel utilzing the _value_ field of the NTP extension field. The _extension field_ 
+has a decribed use as supporting the autokey security protocol which makes it difficult 
+to restrict or flag with IPS or IDS signature rules. However given the open nature of NTP 
+at this time, the use of this field or values within it can provide credible detection of this covert
+channel. In order to obscure the payload from analysis the data is enrypted with AES and
+utilizes a shared key between server and client. 
 
+A second NTP covert channel utilzes the NTP Timestamp Format, specifically the 32bits representing
+the fraction of seconds within the timestamp format. The establishment of this covert
+channel does require shared information between the sender and reciver, however the
+reciever does not have to be the NTP server and can be any host capable of listening
+to NTP traffic between the server and its clients. The reciever listens on the network for
+the predetermined Initiation pattern (X00 00 00 01), Sequence pattern (xe9, xab, xcb)
+of three 32 bit segments, and an end of message pattern (xeb). In order to track the messages
+between the client and reciever the _Peer Clock Precision_ field is used. The detection
+within this channel is difficult without knowing the sequences to look for. Additionally
+the data flows within the existing NTP communication flow only using a small amount of 
+storage within the existing channel. However, based on the limitation of data that can be sent
+per message analysis of NTP message volume may expose this channel.
 
+Lastly is a more recent covert channel that uses NTP as a _Dead Drop_ utilizing both 
+the information NTP stores as part of its client / server communication, such as its
+most recently used(MRU) list and retrieval through NTP query and control messages. NTP
+has a number of service query and monitoring commands that be used to aquire information
+about the status of the service. It was noted by the authors that these requests were
+typically disabled by default however testing with the public ntp pool revieled that 
+queries were answered leading to the liklihood that other environments would also respond
+to these queries. To implement the first possible covert channel the peer list, 
+which is used to keep track of data about upstream time sources, such as poll, offset, 
+jitter, delay, refid, etc, sets it stratum level equal to 14. This indicates to any quering 
+client that there is a covert message stored within the reference ID(_refid_) field of 
+the peer list. In the authors implemenatation the message is within the IP address, 
+stored in the _refid_ field, of which each octet represents an ASCII value. For a 
+covert client obtaining this information can be done by querying the peer status of 
+the covert server. The second covert channel utilzes the MRU list available on 
+every NTP instance. A crafted NTP packet is sent to a listening NTP instance, which
+if not configured with restrictions any instance can respond to NTP queries, where
+data can be set / updated within that instances MRU table. Once these values are set
+a covert client can query for the instances MRU data which it can then decode
+the covert message from. In each instance of these covert channels any monitoring
+or warden device would observer this to be expected NTP communications.
 
 # Standard Implemenation 
 
@@ -366,5 +416,6 @@ The replacing of our covert file
 [9] https://docs.microsoft.com/en-us/previous-versions/windows/it-pro/windows-server-2012-r2-and-2012/jj852172(v=ws.11)
 [10] https://www.ntppool.org/en/
 [11] https://www.rfc-editor.org/rfc/rfc8633.txt
+[12] https://datatracker.ietf.org/doc/html/rfc958
 
 \End{multicols}
