@@ -113,9 +113,9 @@ much noise for very little gain.
 
 We intend to show that, with the above factors in mind, ingress and egress NTP
 communications that are not being analyzed for correctness leaves networks and
-devices open to covert channel utilziation.  This paper is broken down into the
+devices open to covert channel utilization.  This paper is broken down into the
 following sections. In the background section we will will provide basic
-terminogly and workings of NTP and its communication structure. Related works
+terminology and workings of NTP and its communication structure. Related works
 will review past and current analysis related to NTP covert channels. The design
 section will explain our network architecture for implementation as well as
 review our expected throughput, robustness, and detection of this channel.  The
@@ -127,9 +127,9 @@ observations during our implementation.
 
 # Background
 
-### NTP Modes
+## NTP Modes
 
-The network time protocol(NTP) operates in one of three modes. 
+The network time protocol (NTP) operates in one of three modes. 
 
 ### Primary Server
 
@@ -273,68 +273,76 @@ with a known good stratum 1 or 2 servers and make the appropriate firewall
 allowances. To add the severs to the available pool, account registration is
 needed at ntppool.org. Once you have added your server(s) to the pool they are 
 monitored for connectivity and timing accuracy. The ntp project scores systems
-as part of their monitoring and once a system reaches 20 points it can be added to
-the public pool. If a server drops below a score of 10 it is removed from the public
-pool availability.
+as part of their monitoring and once a system reaches 20 points it can be added
+to the public pool. If a server drops below a score of 10 it is removed from the
+public pool availability.
 
 # Related Work
 
-While the intial specification for NTP was published in 1985[12] there has been minimal  
-public analysis into using the NTP protocol as a covert channel. The first implementation by
-Halvemaan and Lahaye utilizes a NTP covert channel through tunneling, called NTPTunnel. This
-type of channel is also observed with other common protocols such as DNS with Iodine as well
-as TCP and ICMP with PTunnel. NTPTunnel utilizes the Field Type value within the NTP header
-to build the intial client / server connection.  A modified Pytun implemenation listens for
-a specific client NTP packet with the extension field, _field type_ value of FF(hex) 00(hex) 
-to which it will respond to the client with a _field type_ value of 00(hex) FF(hex). 
-This exchage allows the client and server to discover each other without any pre-shared details. 
-After the tunnel is established, crafted NTP packets are sent between the server and client over 
-the tunnel utilzing the _value_ field of the NTP extension field. The _extension field_ 
-has a decribed use as supporting the autokey security protocol which makes it difficult 
-to restrict or flag with IPS or IDS signature rules. However given the open nature of NTP 
-at this time, the use of this field or values within it can provide credible detection of this covert
-channel. In order to obscure the payload from analysis the data is enrypted with AES and
-utilizes a shared key between server and client. 
+While the intial specification for NTP was published in 1985[12] there has been
+minimal  public analysis into using the NTP protocol as a covert channel. The
+first implementation by Halvemaan and Lahaye utilizes a NTP covert channel
+through tunneling, called NTPTunnel. This type of channel is also observed with
+other common protocols such as DNS with Iodine as well as TCP and ICMP with
+PTunnel. NTPTunnel utilizes the Field Type value within the NTP header to build
+the initial client / server connection.  A modified Pytun implementation listens
+for a specific client NTP packet with the extension field, _field type_ value of
+FF(hex) 00(hex) to which it will respond to the client with a _field type_ value
+of 00(hex) FF(hex).  This exchange allows the client and server to discover each
+other without any pre-shared details.  After the tunnel is established, crafted
+NTP packets are sent between the server and client over the tunnel utilizing the
+_value_ field of the NTP extension field. The _extension field_ has a described
+use as supporting the autokey security protocol which makes it difficult to
+restrict or flag with IPS or IDS signature rules. However given the open nature
+of NTP at this time, the use of this field or values within it can provide
+credible detection of this covert channel. In order to obscure the payload from
+analysis the data is encrypted with AES and utilizes a shared key between server
+and client. 
 
-A second NTP covert channel utilzes the NTP Timestamp Format, specifically the 32bits representing
-the fraction of seconds within the timestamp format. The establishment of this covert
-channel does require shared information between the sender and reciver, however the
-reciever does not have to be the NTP server and can be any host capable of listening
-to NTP traffic between the server and its clients. The reciever listens on the network for
-the predetermined Initiation pattern (X00 00 00 01), Sequence pattern (xe9, xab, xcb)
-of three 32 bit segments, and an end of message pattern (xeb). In order to track the messages
-between the client and reciever the _Peer Clock Precision_ field is used. The detection
-within this channel is difficult without knowing the sequences to look for. Additionally
-the data flows within the existing NTP communication flow only using a small amount of 
-storage within the existing channel. However, based on the limitation of data that can be sent
-per message analysis of NTP message volume may expose this channel.
+A second NTP covert channel utilizes the NTP Timestamp Format, specifically the
+32 bits representing the fraction of seconds within the timestamp format. The
+establishment of this covert channel does require shared information between the
+sender and receiver, however the receiver does not have to be the NTP server and
+can be any host capable of listening to NTP traffic between the server and its
+clients. The receiver listens on the network for the predetermined Initiation
+pattern ($0x00 00 00 01$), Sequence pattern ($0xe9$, $0xab$, $0xcb$) of three 32
+bit segments, and an end of message pattern ($0xeb$). In order to track the
+messages between the client and receiver the _Peer Clock Precision_ field is
+used. The detection within this channel is difficult without knowing the
+sequences to look for. Additionally the data flows within the existing NTP
+communication flow only using a small amount of storage within the existing
+channel. However, based on the limitation of data that can be sent per message
+analysis of NTP message volume may expose this channel.
 
-Lastly is a more recent covert channel that uses NTP as a _Dead Drop_ utilizing both 
-the information NTP stores as part of its client / server communication, such as its
-most recently used(MRU) list and retrieval through NTP query and control messages. NTP
-has a number of service query and monitoring commands that be used to aquire information
-about the status of the service. It was noted by the authors that these requests were
-typically disabled by default however testing with the public ntp pool revieled that 
-queries were answered leading to the liklihood that other environments would also respond
-to these queries. To implement the first possible covert channel the peer list, 
-which is used to keep track of data about upstream time sources, such as poll, offset, 
-jitter, delay, refid, etc, sets it stratum level equal to 14. This indicates to any quering 
-client that there is a covert message stored within the reference ID(_refid_) field of 
-the peer list. In the authors implemenatation the message is within the IP address, 
-stored in the _refid_ field, of which each octet represents an ASCII value. For a 
-covert client obtaining this information can be done by querying the peer status of 
-the covert server. The second covert channel utilzes the MRU list available on 
-every NTP instance. A crafted NTP packet is sent to a listening NTP instance, which
-if not configured with restrictions any instance can respond to NTP queries, where
-data can be set / updated within that instances MRU table. Once these values are set
-a covert client can query for the instances MRU data which it can then decode
-the covert message from. In each instance of these covert channels any monitoring
-or warden device would observer this to be expected NTP communications.
+Lastly is a more recent covert channel that uses NTP as a _Dead Drop_ utilizing
+both the information NTP stores as part of its client / server communication,
+such as its most recently used (MRU) list and retrieval through NTP query and
+control messages. NTP has a number of service query and monitoring commands that
+be used to acquire information about the status of the service. It was noted by
+the authors that these requests were typically disabled by default however
+testing with the public NTP pool revealed that queries were answered leading to
+the likelihood that other environments would also respond to these queries. To
+implement the first possible covert channel the peer list, which is used to keep
+track of data about upstream time sources, such as poll, offset, jitter, delay,
+refid, etc, sets it stratum level equal to 14. This indicates to any querying 
+client that there is a covert message stored within the reference ID(_refid_)
+field of the peer list. In the authors implementation the message is within the
+IP address, stored in the _refid_ field, of which each octet represents an ASCII
+value. A covert client can obtain this information by querying the peer status
+of the covert server. The second covert channel utilizes the MRU list available
+on every NTP instance. A crafted NTP packet is sent to a listening NTP instance,
+which if not configured with restrictions any instance can respond to NTP
+queries, where data can be set / updated within that instances MRU table. Once
+these values are set a covert client can query for the instances MRU data which
+it can then decode the covert message from. In each instance of these covert
+channels any monitoring or warden device would observer this to be expected NTP
+communications.
 
 # Standard Implemenation 
 
 - Based on the modes outlined in the background section we outline below the 
-  standard implementations that are suggested by pool.ntp.org and gerally accepted as BCP. [11]
+standard implementations that are suggested by pool.ntp.org and generally
+accepted as BCP. [11]
 
 ## DMZ Access
 
