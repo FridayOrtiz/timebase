@@ -1,15 +1,204 @@
-@misc{rfc5905,
-	series =	{Request for Comments},
-	number =	5905,
-	howpublished =	{RFC 5905},
-	publisher =	{RFC Editor},
-	doi =		{10.17487/RFC5905},
-	url =		{https://rfc-editor.org/rfc/rfc5905.txt},
-        author =	{Jim Martin and Jack Burbank and William Kasch and Professor David L. Mills},
-	title =		{{Network Time Protocol Version 4: Protocol and Algorithms Specification}},
-	pagetotal =	110,
-	year =		2010,
-	month =		jun,
-	abstract =	{The Network Time Protocol (NTP) is widely used to synchronize computer clocks in the Internet. This document describes NTP version 4 (NTPv4), which is backwards compatible with NTP version 3 (NTPv3), described in RFC 1305, as well as previous versions of the protocol. NTPv4 includes a modified protocol header to accommodate the Internet Protocol version 6 address family. NTPv4 includes fundamental improvements in the mitigation and discipline algorithms that extend the potential accuracy to the tens of microseconds with modern workstations and fast LANs. It includes a dynamic server discovery scheme, so that in many cases, specific server configuration is not required. It corrects certain errors in the NTPv3 design and implementation and includes an optional extension mechanism. {[}STANDARDS-TRACK{]}},
+@techreport{gligor1993guide,
+  title=        {A guide to understanding covert channel analysis of trusted systems, version 1 (light pink book)},
+  author=       {Gligor, Virgil},
+  year=         {1993},
+  institution=  {NCSC-TG-030, Library No. S-240,572}
 }
 
+@misc{nist2019timing,
+  title=        {Timing},
+  url=          {https://www.gps.gov/applications/timing/},
+  journal=      {GPS.gov: Timing Applications},
+  publisher=    {National Coordination office for Space-Based Positioning, Navigation, and Timing.},
+  year=         {2019},
+  month=        {Nov}
+}
+
+@misc{glonass2011esa,
+  title=        {GLONASS general introduction},
+  url=          {https://gssc.esa.int/navipedia/index.php/GLONASS_General_Introduction},
+  journal=      {GLONASS General Introduction - Navipedia},
+  publisher=    {European Space Agency},
+  author=       {ESA},
+  year=         {2011}
+}
+
+@misc{galileo2011esa,
+  title=        {Galileo general introduction},
+  url=          {https://gssc.esa.int/navipedia/index.php/Galileo_General_Introduction},
+  journal=      {Galileo General Introduction - Navipedia},
+  publisher=    {European Space Agency},
+  author=       {galileo, ESA},
+  year=         {2011}
+}
+
+@misc{msf2021signal,
+  title=        {MSF radio time signal},
+  url=          {https://www.npl.co.uk/msf-signal},
+  journal=      {Time and Frequency},
+  publisher=    {National Physics Lab, UK},
+  author=       {NPL},
+  year=         {2021}
+}
+
+@misc{dcf772017,
+  title=        {DCF77},
+  url=          {https://www.ptb.de/cms/en/ptb/fachabteilungen/abt4/fb-44/ag-442/dissemination-of-legal-time/dcf77.html},
+  journal=      {PTB.de},
+  publisher=    {PHYSIKALISCH-TECHNISCHE BUNDESANSTALT},
+  author=       {Bauch, Andreas},
+  year=         {2017},
+  month=        {May}
+}
+
+@misc{nist2010wwvb,
+  title=        {Radio station WWVB},
+  url=          {https://www.nist.gov/pml/time-and-frequency-division/time-distribution/radio-station-wwvb},
+  journal=      {NIST},
+  publisher=    {Physical Measurement Laboratory / Time and Frequency Division},
+  author=       {NIST},
+  year=         {2010},
+  month=        {Mar}
+}
+
+@misc{clock2021skew,
+  title=        {Clock skew},
+  url=          {https://en.wikipedia.org/wiki/Clock_skew},
+  journal=      {Wikipedia},
+  publisher=    {Wikimedia Foundation},
+  year=         {2021},
+  month=        {Apr}
+}
+
+@misc{msft2018highaccuracytime,
+  title=        {Support boundary for high-accuracy time},
+  url=          {https://docs.microsoft.com/en-us/windows-server/networking/windows-time-service/support-boundary},
+  journal=      {Microsoft Docs},
+  publisher=    {Microsoft},
+  author=       {Havey, Daniel M and Blodgett, Mike and McPhee, Patricia and Ross, Elizabeth and dknappettmsft},
+  year=         {2018},
+  month=        {Oct}
+}
+
+@misc{msft2016maxtoleranceclocksynch,
+  title=        {Maximum tolerance for computer clock synchronization},
+  url=          {https://docs.microsoft.com/en-us/previous-versions/windows/it-pro/windows-server-2012-r2-and-2012/jj852172(v=ws.11)},
+  journal=      {Microsoft Docs},
+  publisher=    {Microsoft},
+  author=       {Docs, Archive},
+  year=         {2016},
+  month=        {Aug}
+}
+
+@misc{hansen2014ntppool,
+  title=        {pool.ntp.org},
+  url=          {https://www.ntppool.org/en/},
+  journal=      {pool.ntp.org: the internet cluster of ntp servers},
+  publisher=    {NTP Pool Project},
+  author=       {Hansen, Bjorn},
+  year=         {2014}
+}
+
+@misc{do2017configurentp,
+  title=        {How to Configure NTP for use in the NTP Pool Project on Ubuntu 16.04},
+  url=          {https://www.digitalocean.com/community/tutorials/how-to-configure-ntp-for-use-in-the-ntp-pool-project-on-ubuntu-16-04},
+  journal=      {Community Tutorial},
+  publisher=    {DigitalOcean},
+  author=       {Ziegenberg, Daniel},
+  year=         {2017},
+  month=        {May}
+}
+
+@misc{rfc958,
+  series =	        {Request for Comments},
+  number =	        958,
+  howpublished =	{RFC 958},
+  publisher =	    {RFC Editor},
+  doi =		        {10.17487/RFC0958},
+  url =		        {https://rfc-editor.org/rfc/rfc958.txt},
+  author =	        {},
+  title =		    {{Network Time Protocol (NTP)}},
+  pagetotal =	    14,
+  year =		    1985,
+  month =		    sep,
+  abstract =	    {This document describes the Network Time Protocol (NTP), a protocol for synchronizing a set of network clocks using a set of distributed clients and servers. NTP is built on the User Datagram Protocol (UDP), which provides a connectionless transport mechanism. It is evolved from the Time Protocol and the ICMP Timestamp message and is a suitable replacement for both. This RFC suggests a proposed protocol for the ARPA-Internet community, and requests discussion and suggestions for improvements.},
+}
+
+@misc{rfc5905,
+  series =	        {Request for Comments},
+  number =	        5905,
+  howpublished =    {RFC 5905},
+  publisher =	    {RFC Editor},
+  doi =		        {10.17487/RFC5905},
+  url =		        {https://rfc-editor.org/rfc/rfc5905.txt},
+  author =	        {Jim Martin and Jack Burbank and William Kasch and Professor David L. Mills},
+  title =		    {{Network Time Protocol Version 4: Protocol and Algorithms Specification}},
+  pagetotal =	    110,
+  year =		    2010,
+  month =		    jun,
+  abstract =	    {The Network Time Protocol (NTP) is widely used to synchronize computer clocks in the Internet. This document describes NTP version 4 (NTPv4), which is backwards compatible with NTP version 3 (NTPv3), described in RFC 1305, as well as previous versions of the protocol. NTPv4 includes a modified protocol header to accommodate the Internet Protocol version 6 address family. NTPv4 includes fundamental improvements in the mitigation and discipline algorithms that extend the potential accuracy to the tens of microseconds with modern workstations and fast LANs. It includes a dynamic server discovery scheme, so that in many cases, specific server configuration is not required. It corrects certain errors in the NTPv3 design and implementation and includes an optional extension mechanism. {[}STANDARDS-TRACK{]}},
+}
+
+@inproceedings{schmidbauer2020covertcaches,
+  title=        {Covert storage caches using the NTP protocol},
+  author=       {Schmidbauer, Tobias and Wendzel, Steffen},
+  booktitle=    {Proceedings of the 15th International Conference on Availability, Reliability and Security},
+  pages=        {1--10},
+  year=         {2020}
+}
+
+@inproceedings{ameri2017covertntp,
+  title=        {Covert channel over network time protocol},
+  author=       {Ameri, Aidin and Johnson, Daryl},
+  booktitle=    {Proceedings of the 2017 International Conference on Cryptography, Security and Privacy},
+  pages=        {62--65},
+  year=         {2017}
+}
+
+@article{halvemaan2017ntptunnel,
+  title=        {NTP as a Covert Channel System and Network Engineering University of Amsterdam},
+  author=       {Halvemaan, KCN and Lahaye, RAH},
+  year=         {2017}
+}
+
+@misc{ekman2016iodine,
+  title=        {Yarrick/Iodine: Official git repo for iodine dns tunnel},
+  url=          {https://github.com/yarrick/iodine},
+  journal=      {GitHub},
+  author=       {Ekman, Erik and Anderson, Bjorn and Bezemer, Anne},
+  year=         {2016},
+  month=        {May}
+}
+
+@misc{stodle2004ptunnel,
+  title=        {Ping tunnel},
+  url=          {https://stuff.mit.edu/afs/sipb/user/golem/tmp/ptunnel-0.61.orig/web/},
+  journal=      {Ping Tunnel - Send TCP traffic over ICMP},
+  author=       {Stodle, Daniel},
+  year=         {2004},
+  month=        {Dec}
+}
+
+@misc{montag4512012pytun,
+  title=        {Montag451/Pytun: Linux TUN/TAP wrapper for Python},
+  url=          {https://github.com/montag451/pytun},
+  journal=      {GitHub},
+  author=       {montag451 and Campelo, David and Gasser, Oliver and Kain, Tal and cofob},
+  year=         {2012},
+  month=        {Mar}
+}
+
+@misc{rfc8633,
+  series =	     {Request for Comments},
+  number =	     8633,
+  howpublished = {RFC 8633},
+  publisher =    {RFC Editor},
+  doi =	         {10.17487/RFC8633},
+  url =	         {https://rfc-editor.org/rfc/rfc8633.txt},
+  author =       {Denis Reilly and Harlan Stenn and Dieter Sibold},
+  title =        {{Network Time Protocol Best Current Practices}},
+  pagetotal =    26,
+  year =         2019,
+  month =        jul,
+  abstract = {The Network Time Protocol (NTP) is one of the oldest protocols on the Internet and has been widely used since its initial publication. This document is a collection of best practices for the general operation of NTP servers and clients on the Internet. It includes recommendations for the stable, accurate, and secure operation of NTP infrastructure. This document is targeted at NTP version 4 as described in RFC 5905.},
+}
