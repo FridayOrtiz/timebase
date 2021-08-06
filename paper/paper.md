@@ -125,6 +125,7 @@ Lastly, our conclusions and future work outlines further areas of expanding the
 NTP covert channels based on current standards specifications as well as
 observations during our implementation.
 
+// TODO: add a paragraph about BPF
 
 # Background
 
@@ -281,6 +282,10 @@ project scores systems as part of their monitoring and once a system reaches 20
 points it can be added to the public pool. If a server drops below a score of
 10 it is removed from the public pool availability[@do2017configurentp].
 
+## extended Berkeley Packet Filter (eBPF)
+
+// TODO: add some more background about BPF filters
+
 # Related Work
 
 While the intial specification for NTP was published in 1985[@rfc958] there has
@@ -389,21 +394,72 @@ the DMZ NTP server is at stratum $2$, and internal devices are at stratum $3$.
 
 # Covert Implementation
 
-// TODO: I'll rewrite this section with my implementation details
- - How we integrated our BPF filter into common deisgn
+// TODO: flesh out implementation details
+
+*  Two main concepts used: BPF filter and user space application
+*  We used BPF filters to append information to NTP packets
+*  We used user space applications to read the contents of those packets
+*  Three components: Client, Server, DMZ
+*  Client is entirely userspace, listens for NTP packets and dumps extension
+fields
+*  Server is BPF and userspace, userspace takes a binary (in this case we
+are sending the filter itself) and loads it into a BPF map, BPF program
+takes the map piece by piece and appends it to NTP extension fields as
+they go out
+*  DMZ is BPF and userspace, userspace reads NTP packets much like the client
+(although it could be done entirely within BPF) and reconstructs the NTP filter
+with it, it then loads the BPF filter it received which transmits itself on
+to the client. 
+*  A good "future work" would be having an entirely within-BPF NTP extension 
+field information relay. Take received extension fields, put them in a map,
+send them back out in replies. Maybe I'll have time to do this when I get back
+from Colorado.
 
 ## Throughput
 
- - The throughput of our implementation
+The throughput of our implementation is fairly flexible. In a test environment,
+we found about one NTP roundtrip request and response per $70$ seconds was
+fairly typical. However, we are able to vary the size of the NTP extension 
+field at will. Large packets will stand out so we want to keep
+our NTP extension to a reasonable size. Our implementation limits the extension
+field to $99$ bytes, due to BPF's 512 byte stack limit (SOURCE THIS). However,
+there are many techniques we could have applied to circumvent this limit. With
+our current implementation we are able to send $99$ bytes per $70$ seconds,
+or approximately $99 / 70 = 1.41$ bytes per second ($11.3$ bits per second).
+Again, this can be scaled as needed, balancing the extension field's size with
+how well it blends in on the network.
 
 ## Robustness
 
- - The robustness of our implemenation
+Our implementation is fairly naive. There is no error checking or attempt to
+hide that data is being transmitted. However, we are confident these techniques
+can easily be layered on top due to the flexibility we have in how much data
+we send per packet. Additionally, the official RFC guidance states that 
+middleboxes should not attempt to modify, clean, or otherwise act as an active
+warden on NTP extension fields (SOURCE). This stems from NTP extension fields
+being open for vendor-specific implementations (e.g., authenticated NTP) and
+attempting to "normalize" these fields could break NTP on a network, which
+would have disastrous consequences. For example, a Fortinet firewall attempting
+to normalize an authentication extension coming out of Windows Server might
+desync time for an entire domain, which would lead to chaos throughout anything
+that relies on Kerberos authentication.
 
 ## Detection
 
- - How someone would detect our implemenation
+Detection of our specific implementation is fairly straightforward, simply
+look for an NTP packet that contains the ELF magic number. This marks the 
+beginning of the binary we are sending over, and any further connections to
+this NTP server can be blocked. However, the use of encryption would render
+the contents opaque to any signature matching.
 
+Another way to detect the channel would be to exhaustively list the known and
+allows NTP extensions on your network and flag anything not on that list.  You
+would need to ensure that these extensions are strongly recognizable and have
+some structure. Keep in mind that an attacker can set the field type and
+structure at will, so you need a way of positively identifying known good
+extensions. If your network relies on an extension that appears the same as
+random encrypted data, you may be forced to rearchitect NTP or you will 
+not be able to block this channel.
 
 # Conclusions and Future Work
 
