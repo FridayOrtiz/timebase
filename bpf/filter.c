@@ -9,7 +9,7 @@
 #include <uapi/linux/pkt_cls.h>
 
 #define IPPROTO_UDP 17
-#define ARRAY_SIZE 256
+#define ARRAY_SIZE 400000
 
 /*
  * This value was determined experimentally, increasing it will exceed BPF
@@ -17,10 +17,20 @@
  */
 #define VALUE_LEN 91
 
+/* Helper macro to print out debug messages */
+#define bpf_printk(fmt, ...)                            \
+({                                                      \
+        char ____fmt[] = fmt;                           \
+        bpf_trace_printk(____fmt, sizeof(____fmt),      \
+                         ##__VA_ARGS__);                \
+})
+
 static void *(*bpf_map_lookup_elem)(void *map, void *key) =
 	(void *)1;
 static int (*bpf_map_update_elem)(void *map, void *key, void *value, unsigned long long flags) =
 	(void *)2;
+static int (*bpf_trace_printk)(const char *fmt, int fmt_size, ...) =
+	(void *)6;
 static unsigned long long (*bpf_get_smp_processor_id)(void) =
 	(void *)8;
 static int (*bpf_skb_store_bytes)(struct __sk_buff *skb, u32 offset, const void *from, u32 len, u64 flags) =
@@ -149,12 +159,36 @@ __attribute__((section("classifier/ntp_filter"), used)) int ntp_filter(struct __
 		 * where there's stuff (i.e., top is the index a writer can
 		 * write stuff to).
 		 */
-		if ((*idx) != (*top)) {
+		if (((*idx) + 1) % ARRAY_SIZE != (*top)) {
+			bpf_printk("Filter: ringbuffer %d to %d.\n", (*idx), (*top));
 			(*idx) += 1;
 			(*idx) %= ARRAY_SIZE;
 			key = 0;
 			bpf_map_update_elem(&msg_ctr, &key, idx, BPF_ANY);
+
+			/*
+			 * We need to special case the starting index. It's all zeroes,
+			 * so we don't want to actually send it. The first time anyway,
+			 * after that it's fair game. So... we have to hope that this
+			 * index will never legitimately contain a bunch of zeroes for
+			 * a given binary. Good enough for POC work. Oh, and we check
+			 * against `1` here because we _just_ incremented the index, so
+			 * checking against `0` won't work correctly.
+			 */
+			if ((*idx) == 1) {
+#pragma unroll
+				for (int i = 0; i < VALUE_LEN; i++) {
+					if (value[i] != (u8) 0x00) {
+						goto DontSkip;
+					}
+				}
+
+				bpf_printk("Filter: skipping initial null chunk\n");
+				return TC_ACT_OK;
+			}
+			DontSkip:;
 		} else {
+			bpf_printk("Filter: ringbuffer empty.\n");
 			return TC_ACT_OK;
 		}
 
@@ -201,6 +235,7 @@ __attribute__((section("classifier/ntp_filter"), used)) int ntp_filter(struct __
 				      bpf_get_smp_processor_id(),
 				      &ev,
 				      sizeof(ev));
+		bpf_printk("Filter: sending extension field.\n");
 	}
 
 	return TC_ACT_OK;
@@ -227,65 +262,44 @@ __attribute__((section("classifier/ntp_receiver"), used)) int ntp_receiver(struc
 		if ((void *) ntp + sizeof(*ntp) > data_end)
 			return TC_ACT_OK;
 
+		bpf_printk("Receiver: NTP packet received\n");
+
 		u32 key = 0;
-		u32 *idx = bpf_map_lookup_elem(&msg_ctr, &key);
-		if (!idx) {
+		u32 *bot = bpf_map_lookup_elem(&msg_ctr, &key);
+		if (!bot) {
 			bpf_map_update_elem(&msg_ctr, &key, &key, BPF_ANY);
 			return TC_ACT_OK;
 		}
 
-		u8 *msg = bpf_map_lookup_elem(&msg_array, idx);
-		if (!msg)
+		key = 1;
+		u32 *top = bpf_map_lookup_elem(&msg_ctr, &key);
+		if (!top) {
+			bpf_map_update_elem(&msg_ctr, &key, &key, BPF_ANY);
 			return TC_ACT_OK;
+		}
+
+		bpf_printk("Receiver: Ringbuffer from %d to %d.\n", *bot, *top);
+
+		if ((*top) == (*bot)) { /* ring buffer is full */
+			bpf_printk("Receiver: ringbuffer full.\n");
+			return TC_ACT_OK;
+		}
+
+		struct extension_field *ext = (void *)ntp + sizeof(*ntp);
+		if ((void *) ext + sizeof(*ext) > data_end) {
+			bpf_printk("Receiver: no payload in NTP packet.\n");
+			return TC_ACT_OK;
+		}
 
 		u8 value[VALUE_LEN] = {0};
 
-		__builtin_memcpy(&value, msg, VALUE_LEN);
+		__builtin_memcpy(&value, ext->value, VALUE_LEN);
 
-		(*idx) += 1;
-		bpf_map_update_elem(&msg_ctr, &key, idx, BPF_ANY);
+		bpf_map_update_elem(&msg_array, top, &value, BPF_ANY);
 
-		u32 offset = sizeof(*eth) + sizeof(*ip) + sizeof(*udp) + sizeof(*ntp);
-
-		struct extension_field ef = {
-			/* *******************************************************
-			 * R: 0 for query, 1 for response                        *
-			 * |             E: 0 for OK, 1 for err                  *
-			 * |             |                                       *
-			 * |             |  Code (implementation specific)       *
-			 * |             ||-|   Type (implementation specific)   *
-			 * -------------|||     |                                *
-			 *              VVV     V                                */
-			.field_type = 0b1000000000000000,
-			.field_len = sizeof(struct extension_field),
-			.value = {0},
-		};
-
-		__builtin_memcpy(&ef.value, &value, VALUE_LEN);
-
-		u32 ret = bpf_skb_change_tail(ctx, offset + sizeof(struct extension_field), 0);
-
-		struct ntp_filter_event tail_ev = {
-			.retcode = ret,
-		};
-		bpf_perf_event_output(ctx,
-		                      &ntp_filter_events,
-		                      bpf_get_smp_processor_id(),
-		                      &tail_ev,
-		                      sizeof(tail_ev));
-
-		ret = bpf_skb_store_bytes(ctx, offset, &ef,
-		                          sizeof(struct extension_field),
-		                          BPF_F_RECOMPUTE_CSUM);
-
-		struct ntp_filter_event ev = {
-			.retcode = ret,
-		};
-		bpf_perf_event_output(ctx,
-		                      &ntp_filter_events,
-		                      bpf_get_smp_processor_id(),
-		                      &ev,
-		                      sizeof(ev));
+		(*top) += 1;
+		(*top) %= ARRAY_SIZE;
+		bpf_map_update_elem(&msg_ctr, &key, top, BPF_ANY);
 	}
 
 	return TC_ACT_OK;

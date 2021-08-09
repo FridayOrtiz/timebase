@@ -49,15 +49,31 @@ $ cd lab/
 $ vagrant up 
 ```
 
-Then launch the client listener.
+Next, you'll want to build the `hello` binary and launch the client listener.
+The binary can be built from any of the machines since we're using shared
+folders.
 
 ```
 $ vagrant ssh client
 $ cd timebase/
+$ pushd lab/
+$ gcc hello.c -o hello
+$ popd
 $ scargo run -- client --interface eth1
 ```
 
-From a second terminal, launch the server.
+From a second terminal, launch the DMZ message passer.
+
+```
+$ cd lab/
+$ vagrant ssh dmz
+$ cd timebase/
+$ scargo run -- dmz --interface eth1
+```
+
+From a third terminal, launch the server. This assumes there is a path to a valid
+`lab/hello` file. The file can, in theory, be anything but for demonstration purposes
+the included Hello World executable works well.
 
 ```
 $ cd lab/
@@ -66,9 +82,15 @@ $ cd timebase/
 $ scargo run -- server --interface eth1
 ```
 
+This POC will only work if these three machines are the only ones on the virtual
+network. There is currently no filtering by source or destination. In theory, it
+would not be difficult to add user-space configurable source and destination
+filtering, allowing us to extend the middlebox message-passer to an arbitrary
+number of hops and clients.
+
 ### Demo
 
-[![asciicast](https://asciinema.org/a/xaaxwcaAbWPCe71C8osFIs77I.svg)](https://asciinema.org/a/xaaxwcaAbWPCe71C8osFIs77I)
+[![asciicast](https://asciinema.org/a/fbT1Mko9wf6lOXtPWTqhtTiiV.svg)](https://asciinema.org/a/fbT1Mko9wf6lOXtPWTqhtTiiV)
 
 # Licenses
 

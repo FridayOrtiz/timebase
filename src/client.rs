@@ -3,6 +3,7 @@ use slog::info;
 
 use crate::{
     ExtensionField, NtpExtensionless, ETHERNET_HEADER_LEN, IPV4_HEADER_LEN, LOGGER, UDP_HEADER_LEN,
+    VALUE_LEN,
 };
 
 pub fn run_client(interface: &str) {
@@ -33,6 +34,7 @@ pub fn run_client(interface: &str) {
     };
 
     info!(LOGGER, "Listening on {}", pnet_iface.name);
+    let mut data_recv = Vec::<u8>::new();
 
     loop {
         let packet = rx.next().unwrap();
@@ -49,12 +51,33 @@ pub fn run_client(interface: &str) {
 
         if udp_packet.get_source() == 123 {
             let payload = &packet[(ETHERNET_HEADER_LEN + IPV4_HEADER_LEN + UDP_HEADER_LEN)..];
-            let extension: ExtensionField = unsafe {
-                std::ptr::read(
-                    payload[std::mem::size_of::<NtpExtensionless>()..].as_ptr() as *const _
-                )
-            };
-            info!(LOGGER, "value: {}", extension);
+            if payload[std::mem::size_of::<NtpExtensionless>()..].len()
+                == std::mem::size_of::<ExtensionField>()
+            {
+                let extension: ExtensionField = unsafe {
+                    std::ptr::read(
+                        payload[std::mem::size_of::<NtpExtensionless>()..].as_ptr() as *const _
+                    )
+                };
+                info!(LOGGER, "value: {}", extension);
+                if extension.value == [0xBEu8; VALUE_LEN] {
+                    info!(LOGGER, "detected end flag extension field, saving contents");
+                    break;
+                }
+                data_recv.extend_from_slice(&extension.value);
+            }
         }
     }
+
+    info!(LOGGER, "trimming 0xBE from end of binary");
+    loop {
+        if *data_recv.last().unwrap() == 0xBEu8 {
+            data_recv.remove(data_recv.len() - 1);
+        } else {
+            break;
+        }
+    }
+
+    info!(LOGGER, "Saving file to `saved_object`");
+    std::fs::write("saved_object", data_recv).expect("could not write `saved_object`");
 }
