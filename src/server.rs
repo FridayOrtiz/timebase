@@ -1,68 +1,19 @@
-use std::collections::HashMap;
 use std::convert::{TryFrom, TryInto};
 use std::error::Error;
-use std::os::unix::io::AsRawFd;
-use std::time::Duration;
 
+use crate::perf::poll_buffers;
 use crate::LOGGER;
-use aya::maps::perf::PerfEventArrayBuffer;
 use aya::maps::{MapRefMut, PerfEventArray};
 use aya::programs::{tc, Link, SchedClassifier, TcAttachType};
 use aya::util::online_cpus;
 use aya::Bpf;
-use bytes::BytesMut;
-use mio::unix::SourceFd;
-use mio::{Events, Interest, Token};
-use slog::{crit, debug, warn};
+use slog::{debug, warn};
 
 use crate::{DataChunk, VALUE_LEN};
 
-fn poll_buffers(buf: Vec<PerfEventArrayBuffer<MapRefMut>>) {
-    let mut poll = mio::Poll::new().unwrap();
-
-    let mut out_bufs = [BytesMut::with_capacity(1024)];
-
-    let mut tokens: HashMap<Token, PerfEventArrayBuffer<MapRefMut>> = buf
-        .into_iter()
-        .map(
-            |p| -> Result<(Token, PerfEventArrayBuffer<MapRefMut>), Box<dyn Error>> {
-                let token = Token(p.as_raw_fd() as usize);
-                poll.registry().register(
-                    &mut SourceFd(&p.as_raw_fd()),
-                    token,
-                    Interest::READABLE,
-                )?;
-                Ok((token, p))
-            },
-        )
-        .collect::<Result<HashMap<Token, PerfEventArrayBuffer<MapRefMut>>, Box<dyn Error>>>()
-        .unwrap();
-
-    let mut events = Events::with_capacity(1024);
-    loop {
-        match poll.poll(&mut events, Some(Duration::from_millis(100))) {
-            Ok(_) => {
-                events
-                    .iter()
-                    .filter(|event| event.is_readable())
-                    .map(|e| e.token())
-                    .for_each(|t| {
-                        let buf = tokens.get_mut(&t).unwrap();
-                        buf.read_events(&mut out_bufs).unwrap();
-                        debug!(LOGGER, "buf: {:?}", out_bufs.get(0).unwrap());
-                    });
-            }
-            Err(e) => {
-                crit!(LOGGER, "critical error: {:?}", e);
-                panic!()
-            }
-        }
-    }
-}
-
 pub fn load_filter(interface_name: &str) -> Result<(), Box<dyn Error>> {
     let mut bpf = Bpf::load_file("bpf/filter_program_x86_64")?;
-    let file_bytes = std::fs::read("bpf/filter_program_x86_64")?;
+    let file_bytes = std::fs::read("lab/hello")?;
     if let Err(e) = tc::qdisc_add_clsact(interface_name) {
         warn!(LOGGER, "Interface already configured: {:?}", e);
         warn!(
@@ -72,7 +23,7 @@ pub fn load_filter(interface_name: &str) -> Result<(), Box<dyn Error>> {
         warn!(LOGGER, "You can probably ignore this.");
     }
 
-    debug!(LOGGER, "Writing '{:x?}' to map.", file_bytes);
+    debug!(LOGGER, "Writing {} bytes to map.", file_bytes.len());
     let mut msg_array =
         aya::maps::Array::<MapRefMut, DataChunk>::try_from(bpf.map_mut("msg_array")?)?;
     let mut idx = 0;
@@ -88,15 +39,29 @@ pub fn load_filter(interface_name: &str) -> Result<(), Box<dyn Error>> {
         msg_array.set(idx, d, 0).expect("could not write to map");
         idx += 1;
     });
-    msg_array
-        .set(
-            idx,
-            DataChunk {
-                data: [0xBEu8; VALUE_LEN],
-            },
-            0,
-        )
-        .expect("could not write done flag to map");
+    debug!(LOGGER, "Writing {} chunks to map.", idx);
+    // We repeat this section because the last two buffers will not be sent by the filter.
+    // There's a logic flaw in my BPF ringbuffer implementation but adding more padding is just
+    // easier.
+    for _ in 0..3 {
+        msg_array
+            .set(
+                idx,
+                DataChunk {
+                    data: [0xBEu8; VALUE_LEN],
+                },
+                0,
+            )
+            .expect("could not write done flag to map");
+        idx += 1; // this represents the first _free_ slot in our ring buffer
+    }
+
+    // now we need to update the ringbuffer indices
+    let mut msg_ctr = aya::maps::Array::<MapRefMut, u32>::try_from(bpf.map_mut("msg_ctr")?)?;
+    msg_ctr
+        .set(0, 0, 0)
+        .expect("could not set bottom of buffer");
+    msg_ctr.set(1, idx, 0).expect("could not set top of buffer");
 
     let prog: &mut SchedClassifier = bpf.program_mut("ntp_filter")?.try_into()?;
     prog.load()?;

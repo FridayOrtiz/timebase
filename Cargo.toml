@@ -9,6 +9,7 @@ authors = [
 ]
 edition = "2018"
 description = "An NTP based covert channel."
+default-run = "timebase"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
