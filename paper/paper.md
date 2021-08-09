@@ -1,5 +1,7 @@
 ---
-title: BPF traffic control filter for implementing a NTP covert channel.
+title: |
+  Covertly passing applications across stratum layers using BPF filters and NTP 
+  extension fields
 author:
   - "Rafael Ortiz &lt;rortiz12@jhu.edu&gt;"
   - "Ramon Benitez-Pagan &lt;ramon.benitez@jhu.edu&gt;"
@@ -289,11 +291,40 @@ project scores systems as part of their monitoring and once a system reaches 20
 points it can be added to the public pool. If a server drops below a score of
 10 it is removed from the public pool availability[@do2017configurentp].
 
-## extended Berkeley Packet Filter (eBPF)
+## extended Berkeley Packet Filter (eBPF or BPF)
 
-// TODO: add some more background about BPF filters
+The extended BPF subsystem can be thought of as doing for the Linux Kernel what
+JavaScript does for a web browser[@rethinking]. A developer can write code that
+is compiled down into bytecode for a virtual machine, which is then translated
+into machine instructions. The virtual machine executes in a sandbox which
+protects the end user from a malicious or malfunctioning program. Unlike a web
+browser, eBPF goes a step further and verifies the applications that it
+executes. The eBPF verifier looks for, among other things, loops, complete
+execution, safe memory access, and more[@bpfdesign]. Because of this, there are
+restrictions on what BPF programs can do. They are not Linux Kernel Modules and
+cannot access arbitrary memory or arbitrarily modify the kernel, for example.
+The verifier must also be able to prove that execution terminates (i.e., solve
+the halting problem for the application, if it can't be verified to terminate
+within some number of instructions the program fails validation). The advantage
+of these restrictions is that an eBPF program is incredibly unlikely to crash
+your kernel or introduce a vulnerability.
 
-// TODO: add some information about traffic control subsystem and TC filters
+There are many places we can attach our eBPF program to. Kprobes and uprobes
+allow us to run a program at an exported symbol in kernelspace and userspace,
+respectively[@whatisebpf]. The BPF program receives information on the current
+CPU register states in the intercepted execution and may examine or modify them
+as it sees fit. We can also attach ourselves to an eXpress Data Path (XDP) filter,
+which allows us examine and modify inbound packets[@bpfandxdp].
+
+A less commonly used, but no less important, attachment point is the Linux
+traffic control (TC) subsystem. Attaching a BPF filter to a TC classifier allows
+us to inspect and modify both ingressing and egressing packets[@tcbpf].  This is
+a requirement for our covert channel, as we will need to modify outbound NTP
+responses as well as intercept inbound NTP responses.[^qdiscs] 
+
+[^qdiscs]: Details on the TC subsystem (such as classifiers and queueing
+disciplines) are beyond the scope of this paper, but if you are interested more
+detail can be found at [@brown_2006].
 
 # Related Work
 

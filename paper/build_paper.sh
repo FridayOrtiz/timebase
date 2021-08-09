@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-pandoc --metadata=title:"BPF traffic control filter for implementing a NTP covert channel." \
+pandoc --metadata=title:"A novel network hopping covert channel using BPF filters and NTP extension fields" \
   --from=markdown+abbreviations \
   --output=paper.pdf \
   --bibliography=paper.bib --csl=ieee.csl \
