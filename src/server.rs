@@ -97,6 +97,14 @@ pub fn load_filter(interface_name: &str) -> Result<(), Box<dyn Error>> {
             0,
         )
         .expect("could not write done flag to map");
+    idx += 1; // this represents the first _free_ slot in our ring buffer
+
+    // now we need to update the ringbuffer indices
+    let mut msg_ctr = aya::maps::Array::<MapRefMut, u32>::try_from(bpf.map_mut("msg_ctr")?)?;
+    msg_ctr
+        .set(0, 0, 0)
+        .expect("could not set bottom of buffer");
+    msg_ctr.set(1, idx, 0).expect("could not set top of buffer");
 
     let prog: &mut SchedClassifier = bpf.program_mut("ntp_filter")?.try_into()?;
     prog.load()?;
