@@ -85,9 +85,8 @@ I(${S_h}$) and I(${S_i}$) of I(M) is covert if and only if any communication
 between the corresponding subjects ${S_h}$ and ${S_i}$ of the model M is
 illegal in M [@gligor1993guide]."
 
-
 After understanding the criteria of what makes a covert channel our goal within
-this paper is to utilize the network time protocol otherwise known as NTP to
+this paper is to utilize the Network Time Protocol (NTP) to
 create a covert channel for data infiltration.
 
 There are a number of network architectures that enterprises and device
@@ -112,9 +111,18 @@ most service logging indicates clearly when a time or date synchronizations are
 out of skew. For an adversary attempting to keep a low profile, internal NTP
 attacks may create too much noise for very little gain.
 
+Berkeley Packet Filter is a Linux Kernel subsystem that allows a user to run
+a limited set of instructions on a virtual machine running in the kernel. It is
+divided between classic BPF (cBPF) and extended BPF (eBPF or simply BPF). The
+older cBPF was limited to observing packet information, while the newer eBPF
+is much more powerful, allowing a user to do things such as modify packets,
+change syscall arguments, modify userspace applications, and more[@whatisebpf].
+
+
 We intend to show that, with the above factors in mind, ingress and egress NTP
 communications that are not being analyzed for correctness leaves networks and
-devices open to covert channel utilization.  This paper is broken down into the
+devices open to covert channel utilization. We will construct a covert channel
+using NTP, leveraging BPF. This paper is broken down into the
 following sections. In the background section we will will provide basic
 terminology and workings of NTP and its communication structure. Related works
 will review past and current analysis related to NTP covert channels. The
@@ -125,7 +133,6 @@ Lastly, our conclusions and future work outlines further areas of expanding the
 NTP covert channels based on current standards specifications as well as
 observations during our implementation.
 
-// TODO: add a paragraph about BPF
 
 # Background
 
@@ -286,6 +293,8 @@ points it can be added to the public pool. If a server drops below a score of
 
 // TODO: add some more background about BPF filters
 
+// TODO: add some information about traffic control subsystem and TC filters
+
 # Related Work
 
 While the intial specification for NTP was published in 1985[@rfc958] there has
@@ -392,28 +401,60 @@ stratum layer $0$. Servers that rely on reference clocks are at stratum layer
 $1$, and so on. In our DMZ scenario, if public pools are at stratum $1$, then
 the DMZ NTP server is at stratum $2$, and internal devices are at stratum $3$.
 
-# Covert Implementation
+# Covert Channel Implementation
 
-// TODO: flesh out implementation details
+The covert channel we implemented can transfer an arbitrary file from an NTP
+server, through a DMZ NTP server, to an NTP client on an internal network using
+a combination of BPF filters and user space applications. 
 
-*  Two main concepts used: BPF filter and user space application
-*  We used BPF filters to append information to NTP packets
-*  We used user space applications to read the contents of those packets
-*  Three components: Client, Server, DMZ
-*  Client is entirely userspace, listens for NTP packets and dumps extension
-fields
-*  Server is BPF and userspace, userspace takes a binary (in this case we
-are sending the filter itself) and loads it into a BPF map, BPF program
-takes the map piece by piece and appends it to NTP extension fields as
-they go out
-*  DMZ is BPF and userspace, userspace reads NTP packets much like the client
-(although it could be done entirely within BPF) and reconstructs the NTP filter
-with it, it then loads the BPF filter it received which transmits itself on
-to the client. 
-*  A good "future work" would be having an entirely within-BPF NTP extension 
-field information relay. Take received extension fields, put them in a map,
-send them back out in replies. Maybe I'll have time to do this when I get back
-from Colorado.
+## Applications
+
+The channel can be broken down broadly into three separate components, a client
+program, a server program, and a DMZ program. Each component uses some 
+combination of BPF filter and user space application.
+
+### Client
+
+The client resides entirely in uer space. It listens for NTP packets with
+extension fields. When it finds an extension field, it saves it to an in-memory
+buffer. When a certain sequence of bytes is received (a full transmistion of
+only `0xBE` bytes for our POC code) it trims off the sequence and any extra
+bytes, and saves the received file in the current working directory. This allows
+the client to receive any arbitrary file, including an executable, via NTP.
+
+### Server
+
+The server uses a combination of BPF filter and userspace application. The
+userspace application's primary purpose is to load and configure the BPF filter.
+The application takes a given file (in our POC, a compiled `hello` Hello World
+program), breaks it into chunks for the NTP extension field, and saves it to
+the BPF program's ring buffer. The BPF program then sits and waits for outbound
+NTP messages, which it then appends the chunked file to as an extensison field.
+After all the chunks have been sent, it stops appending data until more 
+information is written to the ringbuffer.
+
+The use of a BPF filter means we do not need to modify the NTP server code 
+itself. We simply modify existing packets generated by existing NTP requests
+and responses. This has multiple advantages: the NTP server code will always
+match legitimate NTP server code; the NTP server does not need to be modified
+or recompiled; our channel will survive an update and restart of the NTP 
+server daemon; the server is unaware that the response has been modified.
+
+### DMZ
+
+The DMZ, similar to the server, uses a combination of two BPF filters (one
+ingress and one egress) and one userspace application. The userspace
+application's purpose is, again, to load and configure the BPF filters. The
+egress filter behaves the same as the server's egress filter. In fact, it is
+the exact same filter. It reads information from a ringbuffer and attaches it
+to outbound NTP responses. The ingress filter, however, is new. It's job is to
+read incoming NTP responses (e.g., from the server) and extract their extension
+fields. If the extension field matches the expected length, it is added to
+the ringbuffer so that it may be transmitted further down-stratum to additional
+clients. Using this technique we may chain an arbitrary number of intermediary
+NTP servers together, each saving and passing along bits of information from
+the initiating server to the ultimate client. For our POC we have limited 
+ourselves to a single stratum hop.
 
 ## Throughput
 
@@ -422,10 +463,10 @@ we found about one NTP roundtrip request and response per $70$ seconds was
 fairly typical. However, we are able to vary the size of the NTP extension 
 field at will. Large packets will stand out so we want to keep
 our NTP extension to a reasonable size. Our implementation limits the extension
-field to $99$ bytes, due to BPF's 512 byte stack limit (SOURCE THIS). However,
+field to $91$ bytes, due to BPF's 512 byte stack limit[@bpfdesign]. However,
 there are many techniques we could have applied to circumvent this limit. With
-our current implementation we are able to send $99$ bytes per $70$ seconds,
-or approximately $99 / 70 = 1.41$ bytes per second ($11.3$ bits per second).
+our current implementation we are able to send $91$ bytes per $70$ seconds,
+or approximately $91 / 70 = 1.3$ bytes per second ($10.4$ bits per second).
 Again, this can be scaled as needed, balancing the extension field's size with
 how well it blends in on the network.
 
@@ -436,13 +477,21 @@ hide that data is being transmitted. However, we are confident these techniques
 can easily be layered on top due to the flexibility we have in how much data
 we send per packet. Additionally, the official RFC guidance states that 
 middleboxes should not attempt to modify, clean, or otherwise act as an active
-warden on NTP extension fields (SOURCE). This stems from NTP extension fields
+warden on NTP extension fields[@rfc7822]. 
+This stems from NTP extension fields
 being open for vendor-specific implementations (e.g., authenticated NTP) and
 attempting to "normalize" these fields could break NTP on a network, which
 would have disastrous consequences. For example, a Fortinet firewall attempting
 to normalize an authentication extension coming out of Windows Server might
 desync time for an entire domain, which would lead to chaos throughout anything
-that relies on Kerberos authentication.
+that relies on Kerberos authentication. From the section 4, Security 
+Considerations, of RFC7822:
+
+>   Middleboxes such as firewalls MUST NOT filter NTP packets based on
+>   their extension fields.  Such middleboxes should not examine
+>   extension fields in the packets, since NTP packets may contain new
+>   extension fields that the middleboxes have not been updated to
+>   recognize.[@rfc7822]
 
 ## Detection
 
@@ -468,6 +517,10 @@ the propagation of the exploit.  You could use puppet or ansible which is
 configured to return a directory or file to a previously well-known hashedstate.
 The replacing of our covert file
 
+## Native Receiver
+
+// TODO: talk about how we might implement a native receiver, using only
+physical access to the machine, our brains, and no internet besides NTP
 
 \pagebreak
 # References {-}
