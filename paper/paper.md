@@ -391,20 +391,38 @@ decode the covert message from. In each instance of these covert channels any
 monitoring or warden device would observer this to be expected NTP
 communications.
 
-# Standard Implemenation
+# Standard Implementation
 
-Based on the modes outlined in the background section we outline below the
-standard implementations that are suggested by pool.ntp.org and generally
-accepted as BCP[@rfc8633].
+As previously outlined, being able to synchronize as well as utilize reliable
+time sources is important across many divergent network architectures and
+device types. Large organizations can accomplish reliable time by aquiring
+their own reference clock which can directly access satilite, radio, or atomic
+time sources. For smaller organizations, vendors, and individuals the NTP Pool
+Project is provided as a public time resource[@hansen2014ntppool]. Both the NTP
+Pool Project and RFC8633[@rfc8633] outline best common practices(BCP) when
+employing the use of pool.ntp.org resources. Below we review two such
+implementations.
 
 ## DMZ Access
 
-In DMZ access, devices in a secure network synchronize their clocks via an NTP
-server that is located in a controlled DMZ. That NTP server synchronizes its
-clock by connecting to one or more trusted NTP pools. Any information that can
-survive a stratum layer[^stratum] may reach devices through the DMZ.
+In secure network architectures there is generally a zone which allows for
+restricted external network access to approved destinations. In this zone, also
+referred to as a DMZ[@fortinet2021dmz], an organization places the systems that
+will become the primary time sources for the ecompassing network. Deploying
+this configuration for distributed time to internal hosts provides a number of
+benefits.  First, it reduces diplicate queries to ntp pool resources from
+multiple hosts within the network.  Second, is the minimization of both
+external ntp quieries and network egress traffic. Lastly, if external access to
+pool.ntp.org was disrupted, network devices would still be able to source and
+continue to synchronize time within the network. 
+
+The figure below demonstrates the DMZ configuration where the primary NTP
+servers act as clients to pool.ntp.org and as servers to clients within the
+network. This configuration can allow for the DMZ NTP servers to admit covert
+data from the unconditional trust placed in pool.ntp.org's public pool servers.
 
 
+//TODO add image and figure out the latex figure numbering scheme
 ```
 Placeholder for direct
 access image / diagram.
@@ -414,23 +432,26 @@ serves replies to clients in a secure inner network.
 
 ## Direct Access
 
-In direct access, devices in a secure network synchronize their clocks directly
-via NTP to a trusted, publicly available, pool. Any information that the NTP
-server can pack into an NTP reply may reach devices inside this network.
+There are instances where manufactuer or vendor hardware enforces the time
+source to be used. Numerous reasons for this includ user experience, respecting
+the public ntp pool available resources, and uncertainty with device
+deployment. In the instances where an appliance or embedded device is deployed
+to a customer network, the possibility exists that there are no available time
+servers, the version of time server is incompatable, or a customer may want to
+avoid dependancy on their network resource for the device.
+
+In direct access, devices with the network synchronize their clocks directly
+via NTP to a pre-configured time source. Any information that the NTP server
+can embed into an NTP reply may reach devices inside this network.
+
+//TODO add image and figure out the latex figure numbering scheme
 
 ```
 Placeholder for direct
 access image / diagram.
 ```
 **Figure 3.** The Direct Access NTP scenario, where clients in a secure inner
-network are allowed direct access to NTP pool servers.
-
-
-[^stratum]:  In NTP, a stratum is a layer of devices that are the same distance
-from a reference clock. Reference clocks, considered a source of truth, are at
-stratum layer $0$. Servers that rely on reference clocks are at stratum layer
-$1$, and so on. In our DMZ scenario, if public pools are at stratum $1$, then
-the DMZ NTP server is at stratum $2$, and internal devices are at stratum $3$.
+network are allowed direct access to a pool of NTP servers.
 
 # Covert Channel Implementation
 
@@ -441,7 +462,7 @@ a combination of BPF filters and user space applications.
 ## Applications
 
 The channel can be broken down broadly into three separate components, a client
-program, a server program, and a DMZ program. Each component uses some 
+program, a server program, and a DMZ program. Each component uses some
 combination of BPF filter and user space application.
 
 ### Client
@@ -450,8 +471,9 @@ The client resides entirely in uer space. It listens for NTP packets with
 extension fields. When it finds an extension field, it saves it to an in-memory
 buffer. When a certain sequence of bytes is received (a full transmistion of
 only `0xBE` bytes for our POC code) it trims off the sequence and any extra
-bytes, and saves the received file in the current working directory. This allows
-the client to receive any arbitrary file, including an executable, via NTP.
+bytes, and saves the received file in the current working directory. This
+allows the client to receive any arbitrary file, including an executable, via
+NTP.
 
 ### Server
 
@@ -547,6 +569,11 @@ Deploying content to one service and exploiting automated idempotence to further
 the propagation of the exploit.  You could use puppet or ansible which is
 configured to return a directory or file to a previously well-known hashedstate.
 The replacing of our covert file
+
+//TODO: roughtime securinig time with digital signatures
+[@cloudflare2018patton] 
+[@googlegit_roughtime]
+[@radclock2014]
 
 ## Native Receiver
 
