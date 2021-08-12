@@ -17,6 +17,9 @@ header-includes:
   - \usepackage{lastpage}
   - \usepackage{multicol}
   - \usepackage{supertabular}
+  - \usepackage{float}
+  - \usepackage{graphicx}
+  - \graphicspath{ {./images/} }
   - \newcommand{\hideFromPandoc}[1]{#1}
   - \hideFromPandoc{
       \let\Begin\begin
@@ -173,8 +176,6 @@ references time from multiple available time sources to synchronize its system
 time.
 
 ### NTP Uses
-
-// TODO: this section can be cut down if we need space
 
 While accurate time is useful the question remains about why it is needed for
 devices such as computers, phones and within local area networks. Most if not
@@ -416,42 +417,57 @@ external ntp quieries and network egress traffic. Lastly, if external access to
 pool.ntp.org was disrupted, network devices would still be able to source and
 continue to synchronize time within the network. 
 
-The figure below demonstrates the DMZ configuration where the primary NTP
-servers act as clients to pool.ntp.org and as servers to clients within the
-network. This configuration can allow for the DMZ NTP servers to admit covert
-data from the unconditional trust placed in pool.ntp.org's public pool servers.
 
+Figure \ref{fig:dmz_access} below demonstrates the DMZ configuration where the
+primary NTP servers act as clients to pool.ntp.org and as servers to clients
+within the network. This configuration can allow for the DMZ NTP servers to
+admit covert data from the unconditional trust placed in pool.ntp.org's public
+pool servers.
 
-//TODO add image and figure out the latex figure numbering scheme
-```
-Placeholder for direct
-access image / diagram.
-```
-**Figure 2.** The DMZ Access NTP scenario, where an NTP server in a DMZ
-serves replies to clients in a secure inner network.
+\begin{figure}[H]
+    \centering
+    \includegraphics[scale=0.35,keepaspectratio]{ntp_dmz_access_v2}
+    \caption{DMZ Access}
+    \label{fig:dmz_access}
+\end{figure}
 
 ## Direct Access
 
-There are instances where manufactuer or vendor hardware enforces the time
-source to be used. Numerous reasons for this includ user experience, respecting
-the public ntp pool available resources, and uncertainty with device
-deployment. In the instances where an appliance or embedded device is deployed
-to a customer network, the possibility exists that there are no available time
-servers, the version of time server is incompatable, or a customer may want to
-avoid dependancy on their network resource for the device.
+There are instances where manufactuer or a vendor appliance enforces the time
+source to be used. [^vendor_ntp_pool] Numerous reasons for this include user
+experience [^vendor_time] respecting the public ntp pool available resource,
+and uncertainty with device deployment. In the instances where an appliance or
+embedded device is deployed to a customer network, the possibility exists that
+there are no available time servers, the version of time server is
+incompatable, or a customer may want to avoid dependancy on their network
+resource for the device.
 
-In direct access, devices with the network synchronize their clocks directly
-via NTP to a pre-configured time source. Any information that the NTP server
-can embed into an NTP reply may reach devices inside this network.
+In direct access, as shown in figures \ref{fig:ntp_vendor_pool} and
+\ref{fig:vendor_pool}, devices with the network synchronize their clocks
+directly via NTP to a pre-configured time source. Any information that the NTP
+server can embed into an NTP reply may reach devices inside this network.
 
-//TODO add image and figure out the latex figure numbering scheme
+\begin{figure}[H]
+    \centering
+    \includegraphics[scale=0.35,keepaspectratio]{ntp_direct_access_v_pool}
+    \caption{Vendor Specific NTP}
+    \label{fig:ntp_vendor_pool}
+\end{figure}
 
-```
-Placeholder for direct
-access image / diagram.
-```
-**Figure 3.** The Direct Access NTP scenario, where clients in a secure inner
-network are allowed direct access to a pool of NTP servers.
+\begin{figure}[H]
+    \centering
+    \includegraphics[scale=0.35,keepaspectratio]{ntp_direct_access_vendor}
+    \caption{Vendor Provided NTP}
+    \label{fig:vendor_pool}
+\end{figure}
+
+
+[^vendor_ntp_pool]: The NTP Pool Project supports vendor specific zones within
+the pool.ntp.org domain. This allows vendors to pre-configure NTP server values
+in their configurations[@hansen2014vendorntp].
+
+[^vendor_time]: Vendors such as Apple and Microsoft provide time with their own
+infrastucture through domains such as time.windows.com or time.apple.com.
 
 # Covert Channel Implementation
 
@@ -467,7 +483,7 @@ combination of BPF filter and user space application.
 
 ### Client
 
-The client resides entirely in uer space. It listens for NTP packets with
+The client resides entirely in user space. It listens for NTP packets with
 extension fields. When it finds an extension field, it saves it to an in-memory
 buffer. When a certain sequence of bytes is received (a full transmistion of
 only `0xBE` bytes for our POC code) it trims off the sequence and any extra
