@@ -20,6 +20,7 @@ header-includes:
   - \usepackage{float}
   - \usepackage{graphicx}
   - \graphicspath{ {./images/} }
+  - \usepackage{listings}
   - \newcommand{\hideFromPandoc}[1]{#1}
   - \hideFromPandoc{
       \let\Begin\begin
@@ -39,6 +40,7 @@ monofont: DejaVuSansMono
 
 
 \Begin{multicols}{2}
+
 
 # Abstract {-}
 
@@ -75,7 +77,6 @@ _Definition 3_:
 resource allocation policies and resource management implementation
 [@gligor1993guide]."
 
-
 _Definition 4_:
 
 "Covert channels are those that use entities not normally viewed as data
@@ -98,11 +99,11 @@ There are a number of network architectures that enterprises and device
 manufacturers utilize in order to have network connected devices synchronize
 their system time. We reason that most security controls within these
 architectures focus on ensuring that access is only allowed to appropriate
-network time servers, over the protocol UDP and port 123, and that public
-network time servers are themselves clients of higher tiered stratum layer
-servers. Due to the default trust associated with NTP very few operators
-validate the public NTP pool servers they connect to or the time data that is
-retrieved and propagated throughout the network from servers to clients.
+network time servers, over UDP/123, and that public network time servers are
+themselves clients of higher tiered stratum layer servers. Due to the default
+trust associated with NTP very few operators validate the public NTP pool
+sources they connect to or the time data that is retrieved and propagated
+throughout the network from servers to clients.
 
 In order to address these security concerns as well as control NTP delivery,
 enterprises have deployed dedicated vendor appliances while device
@@ -122,7 +123,6 @@ divided between classic BPF (cBPF) and extended BPF (eBPF or simply BPF). The
 older cBPF was limited to observing packet information, while the newer eBPF
 is much more powerful, allowing a user to do things such as modify packets,
 change syscall arguments, modify userspace applications, and more[@whatisebpf].
-
 
 We intend to show that, with the above factors in mind, ingress and egress NTP
 communications that are not being analyzed for correctness leaves networks and
@@ -231,20 +231,22 @@ inform applications when to request a token
 refresh[@msft2016maxtoleranceclocksynch]. For other web protocols, such as
 HTTPS, time and date settings are important for validating and generating
 certificates. For example each website that is secured using HTTPS presents a
-certificate which contains a _not valid before_ and _not valid after_ entries
-which contain a date, time and timezone as seen below:
+certificate which contains a *_not valid before_* and *_not valid after_*
+entries which contain a date, time and timezone as seen in Listing
+\ref{jhuCertInfo} below:
 
-```
-Signature Algorithm: sha256WithRSAEncryption
-  Issuer:
-    C=US, O=DigiCert Inc,
-    OU=www.digicert.com,
-    CN=GeoTrust RSA CA 2018
-  Validity
-    Not Before: Jul  1 00:00:00 2021 GMT
+\lstset{columns=fullflexible}
+\begin{lstlisting}[caption={www.jhu.edu certificate information},captionpos=b,label={jhuCertInfo}]
+Signature Algorithm: 
+  sha256WithRSAEncryption 
+Issuer: 
+  C=US, O=DigiCert Inc,
+  OU=www.digicert.com, 
+  CN=GeoTrust RSA CA 2018 
+  Validity 
+    Not Before: Jul  1 00:00:00 2021 GMT 
     Not After : Mar  7 23:59:59 2022 GMT
-```
-**Figure 1.**: https://www.jhu.edu website certificate information
+\end{lstlisting}
 
 This allows systems to validate the security of the presented certificate from
 the webserver.
@@ -264,12 +266,14 @@ each client requests a forward lookup of one of the following:
 
 The DNS based pool set of returned NTP servers IP addresses rotates every hour.
 Additionally, further continent zones and sub-zones exist to provide time
-service asa close as possible to the intended client as seen in table 1 below.
+service asa close as possible to the intended client as seen in Table
+\ref{table:continentZones} below.
 
 \tablefirsthead{%
    \hline
        Area & Hostname \\\hline}
 \bottomcaption{Continet Zones}
+\label{table:continentZones}
 \begin{supertabular}{|c|c|}
 \hline
 Asia & asia.pool.ntp.org \\
@@ -442,7 +446,7 @@ there are no available time servers, the version of time server is
 incompatable, or a customer may want to avoid dependancy on their network
 resource for the device.
 
-In direct access, as shown in figures \ref{fig:ntp_vendor_pool} and
+In direct access, as shown in Figures \ref{fig:ntp_vendor_pool} and
 \ref{fig:vendor_pool}, devices with the network synchronize their clocks
 directly via NTP to a pre-configured time source. Any information that the NTP
 server can embed into an NTP reply may reach devices inside this network.
