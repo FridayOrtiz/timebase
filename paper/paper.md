@@ -231,12 +231,19 @@ inform applications when to request a token
 refresh[@msft2016maxtoleranceclocksynch]. For other web protocols, such as
 HTTPS, time and date settings are important for validating and generating
 certificates. For example each website that is secured using HTTPS presents a
-certificate which contains a *_not valid before_* and *_not valid after_*
+certificate which contains a ***not valid before*** and ***not valid after***
 entries which contain a date, time and timezone as seen in Listing
-\ref{jhuCertInfo} below:
+\ref{jhuCertInfo} below which allows systems to validate the security of the
+presented certificate from the webserver.
 
-\lstset{columns=fullflexible}
-\begin{lstlisting}[caption={www.jhu.edu certificate information},captionpos=b,label={jhuCertInfo}]
+\lstset{
+  columns=fullflexible,
+  frame=single,
+  label={jhuCertInfo},
+  captionpos=b,
+  caption={www.jhu.edu certificate information},
+}
+\begin{lstlisting}
 Signature Algorithm: 
   sha256WithRSAEncryption 
 Issuer: 
@@ -248,8 +255,6 @@ Issuer:
     Not After : Mar  7 23:59:59 2022 GMT
 \end{lstlisting}
 
-This allows systems to validate the security of the presented certificate from
-the webserver.
 
 ### NTP Public Pool
 
@@ -547,17 +552,16 @@ how well it blends in on the network.
 
 Our implementation is fairly naive. There is no error checking or attempt to
 hide that data is being transmitted. However, we are confident these techniques
-can easily be layered on top due to the flexibility we have in how much data
-we send per packet. Additionally, the official RFC guidance states that 
+can easily be layered on top due to the flexibility we have in how much data we
+send per packet. Additionally, the official RFC guidance states that
 middleboxes should not attempt to modify, clean, or otherwise act as an active
-warden on NTP extension fields[@rfc7822]. 
-This stems from NTP extension fields
+warden on NTP extension fields[@rfc7822].  This stems from NTP extension fields
 being open for vendor-specific implementations (e.g., authenticated NTP) and
 attempting to "normalize" these fields could break NTP on a network, which
 would have disastrous consequences. For example, a Fortinet firewall attempting
 to normalize an authentication extension coming out of Windows Server might
 desync time for an entire domain, which would lead to chaos throughout anything
-that relies on Kerberos authentication. From the section 4, Security 
+that relies on Kerberos authentication. From the section 4, Security
 Considerations, of RFC7822:
 
 >   Middleboxes such as firewalls MUST NOT filter NTP packets based on
@@ -585,23 +589,36 @@ not be able to block this channel.
 
 # Conclusions and Future Work
 
-Deploying content to one service and exploiting automated idempotence to further
-the propagation of the exploit.  You could use puppet or ansible which is
-configured to return a directory or file to a previously well-known hashedstate.
-The replacing of our covert file
+In conclusion NTP is important standard which is utilized throughout many
+networks and devices. It has been shown that many of our security
+implementations today depend on accurate time for running application
+processes, auditing, logging and authentication. The NTP protocol however, is
+an old standard with relaxed specifications, which as we have shown allows for
+the creation of covert channels. The combination of NTP pervasiviness
+throughout enterprise networks as well as the importance of accurate
+synchronized time leaves defenders with minimal options to protect against
+possible covert channels. 
 
-//TODO: roughtime securinig time with digital signatures
-[@cloudflare2018patton] 
-[@googlegit_roughtime]
-[@radclock2014]
+The network time foundation, which helps to fund the NTP project and other time
+based initivites, has been working on a draft for "Network Time
+Security[@draft2016ntp-security]." The draft includes specifications for:
 
-## Native Receiver
+- Client time server authentication
+- Utilzing message authentication code(MAC) for packet integrity
+- Request Response Consistancy to ensure un-alterted messages
+- Protection against amplification attacks
 
-// TODO: talk about how we might implement a native receiver, using only
-physical access to the machine, our brains, and no internet besides NTP
+While the NTS specification is still a draft Google[@googlegit_roughtime] and
+Cloudflare[@cloudflare2018patton] have proposed an implentation called
+roughtime[@draft2021roughtime]. Roughtime seeks to provide time server
+authentication in addition to guaranteeing cryptographicly that packet data has
+not been alterted between the server and client. The packet structure is
+limited to a small number of fields each with a specific purpose. This can be
+promising in limiting the typical usage of optional fields for covert channels.
+
+\vfill
 
 \pagebreak
 # References {-}
-
 
 \End{multicols}
