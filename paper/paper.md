@@ -44,16 +44,18 @@ monofont: DejaVuSansMono
 # Abstract {-}
 
 Many papers focus on creating covert channels for the purpose of data
-exfiltration. That is, they attempt to remove some information from a
+exfiltration; they attempt to remove some information from a
 protected network. Less common appears to be the concept of data
 _infiltration_, where a covert channel is established to secretly move
 information _inside_ a protected network. Many exfiltration oriented
 channels make assumptions about extant arbitrary infiltration channels being
 available for loading the tooling necessary to establish the outbound
-channel. We are proposing studying and implementing an NTP-based covert
+channel. We propose a novel BPF and NTP-based covert
 channel for infiltrating unauthorized information into a secure network.
 
 # Introduction
+
+## Covert Channels
 
 Covert channels are traditionally classified as either storage or timing
 channels.  These classifications came about from definitions outlined in the
@@ -89,9 +91,10 @@ I(${S_h}$) and I(${S_i}$) of I(M) is covert if and only if any communication
 between the corresponding subjects ${S_h}$ and ${S_i}$ of the model M is
 illegal in M [@gligor1993guide]."
 
-After understanding the criteria of what makes a covert channel our goal within
-this paper is to utilize the Network Time Protocol (NTP) to
+Our goal is to utilize the Network Time Protocol (NTP) to
 create a covert channel for data infiltration.
+
+## Network Time Protocol
 
 There are a number of network architectures that enterprises and device
 manufacturers utilize in order to have network connected devices synchronize
@@ -114,6 +117,13 @@ disruptions can affect remote logins, authentication tokens, and DHCP leasing
 most service logging indicates clearly when a time or date synchronizations are
 out of skew. For an adversary attempting to keep a low profile, internal NTP
 attacks may create too much noise for very little gain.
+
+However, there are other techniques that can be applied by an attacker to take
+advantage of NTP. NTP is fundamentally designed to allow external information 
+(ostensibly time information) to reach the inside of a network. We can leverage
+this property to create our channel.
+
+## extended Berkeley Packet Filters
 
 Berkeley Packet Filter is a Linux Kernel subsystem that allows a user to run
 a limited set of instructions on a virtual machine running in the kernel. It is
@@ -176,31 +186,30 @@ time.
 
 ### NTP Uses
 
-While accurate time is useful the question remains about why it is needed for
-devices such as computers, phones and within local area networks. Most if not
+While accurate time is useful the question remains about why it is necessary
+within local area networks. Most if not
 all computing type devices contain some local clock or time keeping mechanisms.
 Typically they are adjusted during the setup or initialization phase to the
 current date and time. While the local system clock is able to keep track of
 time, through frequency ticks, it is subject to the same interrupt process
 delays as other system hardware and software. Over time the missed or delayed
 interrupts can cause the system to fall behind real-time causing the system
-time to become skewed[@clock2021skew]. Putting this into perspective it can be
-seen how each device, on the network, if left to its own time keeping, would
-eventually fall out of sync with other devices. For a single device this may
-not be concerning as the time can be adjusted, however with logging, security,
-and within the network this can have cascading problems.
+time to become skewed[@clock2021skew]. Network devices, if left to its own time keeping, would
+eventually fall out of sync with each other. For a single device this may
+not be concerning as the time can be adjusted; however, with logging, security,
+and within the network this can cause cascading problems.
 
-The first of these issues is the ability to schedule tasks.  Within current
-operating systems tasks can be scheduled to run at specific dates and times in
+The first of these issues is the ability to schedule tasks.  Modern
+support scheduled tasks that run at specific dates and times in
 order to perform maintenance, updates, or monitoring. These tasks can have
 dependencies on other scheduled tasks running or checking dates and times for
-file access and updates. Externally to the system other devices may depend on
+file access and updates. External devices may depend on
 the scheduled jobs placing needed files or updates within a specific time
-frame, as time drifts between the systems this can lead to failed job
-processing and race conditions.
+frame. As time drifts between the systems this can lead to failed job
+processing and notoriously hard to fix race conditions.
 
-This leads to the second issue, auditing and logging. When creating log events,
-troubleshooting issues or auditing security logins one of the many sources
+The second issue is auditing and logging. When creating log events,
+troubleshooting issues, or auditing security logins, one of the many sources
 referenced is the system or application logs. When reviewing the timeline of
 events and seeing that the system clocks are not synchronized it places extra
 effort in determining when systems were accessed and at what time relative to
@@ -404,8 +413,8 @@ communications.
 
 As previously outlined, being able to synchronize as well as utilize reliable
 time sources is important across many divergent network architectures and
-device types. Large organizations can accomplish reliable time by aquiring
-their own reference clock which can directly access satilite, radio, or atomic
+device types. Large organizations can accomplish reliable time by acquiring
+their own reference clock which can directly access satellite, radio, or atomic
 time sources. For smaller organizations, vendors, and individuals the NTP Pool
 Project is provided as a public time resource[@hansen2014ntppool]. Both the NTP
 Pool Project and RFC8633[@rfc8633] outline best common practices(BCP) when
@@ -417,11 +426,11 @@ implementations.
 In secure network architectures there is generally a zone which allows for
 restricted external network access to approved destinations. In this zone, also
 referred to as a DMZ[@fortinet2021dmz], an organization places the systems that
-will become the primary time sources for the ecompassing network. Deploying
+will become the primary time sources for the encompassing network. Deploying
 this configuration for distributed time to internal hosts provides a number of
-benefits.  First, it reduces diplicate queries to ntp pool resources from
+benefits.  First, it reduces duplicate queries to NTP pool resources from
 multiple hosts within the network.  Second, is the minimization of both
-external ntp quieries and network egress traffic. Lastly, if external access to
+external NTP queries and network egress traffic. Lastly, if external access to
 pool.ntp.org was disrupted, network devices would still be able to source and
 continue to synchronize time within the network. 
 
@@ -441,13 +450,13 @@ pool servers.
 
 ## Direct Access
 
-There are instances where manufactuer or a vendor appliance enforces the time
+There are instances where a manufacturer or vendor appliance enforces the time
 source to be used. [^vendor_ntp_pool] Numerous reasons for this include user
-experience [^vendor_time] respecting the public ntp pool available resource,
+experience [^vendor_time] respecting the public NTP pool available resource,
 and uncertainty with device deployment. In the instances where an appliance or
 embedded device is deployed to a customer network, the possibility exists that
 there are no available time servers, the version of time server is
-incompatable, or a customer may want to avoid dependancy on their network
+incompatible, or a customer may want to avoid dependency on their network
 resource for the device.
 
 In direct access, as shown in Figures \ref{fig:ntp_vendor_pool} and
@@ -474,7 +483,7 @@ the pool.ntp.org domain. This allows vendors to pre-configure NTP server values
 in their configurations[@hansen2014vendorntp].
 
 [^vendor_time]: Vendors such as Apple and Microsoft provide time with their own
-infrastucture through domains such as time.windows.com or time.apple.com.
+infrastructure through domains such as time.windows.com or time.apple.com.
 
 # Covert Channel Implementation
 
@@ -492,7 +501,7 @@ combination of BPF filter and user space application.
 
 The client resides entirely in user space. It listens for NTP packets with
 extension fields. When it finds an extension field, it saves it to an in-memory
-buffer. When a certain sequence of bytes is received (a full transmistion of
+buffer. When a certain sequence of bytes is received (a full transmission of
 only `0xBE` bytes for our POC code) it trims off the sequence and any extra
 bytes, and saves the received file in the current working directory. This
 allows the client to receive any arbitrary file, including an executable, via
@@ -505,7 +514,7 @@ userspace application's primary purpose is to load and configure the BPF filter.
 The application takes a given file (in our POC, a compiled `hello` Hello World
 program), breaks it into chunks for the NTP extension field, and saves it to
 the BPF program's ring buffer. The BPF program then sits and waits for outbound
-NTP messages, which it then appends the chunked file to as an extensison field.
+NTP messages, which it then appends the chunked file to as an extension field.
 After all the chunks have been sent, it stops appending data until more 
 information is written to the ringbuffer.
 
@@ -583,7 +592,7 @@ formerly Bro, rules can be configured to monitor and track connections to
 upstream NTP servers, high connection duration, and high number of bytes
 exchanged. These would be considered high-quality indicators of compromise. 
 
-In the second catagory, packet analysis techniques that focus on the NTP
+In the second category, packet analysis techniques that focus on the NTP
 extension header would be effective detection mechanisms. For example, a
 detection that looks for an NTP packet that contains the ELF magic number. This
 marks the beginning of the binary we are sending over, and any further
@@ -618,25 +627,25 @@ networks and devices. It has been shown that many of our security
 implementations today depend on accurate time for running application
 processes, auditing, logging and authentication. The NTP protocol however, is
 an old standard with relaxed specifications, which as we have shown allows for
-the creation of covert channels. The combination of NTP pervasiviness
+the creation of covert channels. The combination of NTP pervasiveness
 throughout enterprise networks as well as the importance of accurate
 synchronized time leaves defenders with minimal options to protect against
 possible covert channels. 
 
 The network time foundation, which helps to fund the NTP project and other time
-based initivites, has been working on a draft for "Network Time
+based initiatives, has been working on a draft for "Network Time
 Security[@draft2016ntp-security]." The draft includes specifications for:
 
 - Client time server authentication
-- Utilzing message authentication code(MAC) for packet integrity
-- Request Response Consistancy to ensure un-alterted messages
+- Utilizing message authentication code(MAC) for packet integrity
+- Request Response Consistency to ensure un-altered messages
 - Protection against amplification attacks
 
 While the NTS specification is still a draft Google[@googlegit_roughtime] and
-Cloudflare[@cloudflare2018patton] have proposed an implentation called
+Cloudflare[@cloudflare2018patton] have proposed an implementation called
 roughtime[@draft2021roughtime]. Roughtime seeks to provide time server
-authentication in addition to guaranteeing cryptographicly that packet data has
-not been alterted between the server and client. The packet structure is
+authentication in addition to guaranteeing cryptographically that packet data has
+not been altered between the server and client. The packet structure is
 limited to a small number of fields each with a specific purpose. This can be
 promising in limiting the typical usage of optional fields for covert channels.
 
