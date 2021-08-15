@@ -1,7 +1,7 @@
 ---
 title: |
-  Covertly passing applications across stratum layers using BPF filters and NTP 
-  extension fields
+  A novel network hopping covert channel using BPF filters and NTP extension
+  fields.
 author:
   - "Rafael Ortiz &lt;rortiz12@jhu.edu&gt;"
   - "Ramon Benitez-Pagan &lt;ramon.benitez@jhu.edu&gt;"
