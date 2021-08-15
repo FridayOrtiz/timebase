@@ -125,16 +125,18 @@ change syscall arguments, modify userspace applications, and more[@whatisebpf].
 We intend to show that, with the above factors in mind, ingress and egress NTP
 communications that are not being analyzed for correctness leaves networks and
 devices open to covert channel utilization. We will construct a covert channel
-using NTP, leveraging BPF. This paper is broken down into the
-following sections. In the background section we will will provide basic
-terminology and workings of NTP and its communication structure. Related works
-will review past and current analysis related to NTP covert channels. The
-design section will explain our network architecture for implementation as well
-as review our expected throughput, robustness, and detection of this channel.
-The implementation will demonstrate our covert channel in our lab environment.
-Lastly, our conclusions and future work outlines further areas of expanding the
-NTP covert channels based on current standards specifications as well as
-observations during our implementation.
+using NTP, leveraging BPF. 
+
+This paper is broken down into the following sections. In the background
+section we will will provide basic terminology and workings of NTP and its
+communication structure. Related works will review past and current analysis
+related to NTP covert channels. The design section will explain our network
+architecture for implementation as well as review our expected throughput,
+robustness, and detection of this channel.  The implementation will demonstrate
+our covert channel in our lab environment.  Lastly, our conclusions and future
+work outlines further areas of expanding the NTP covert channels based on
+current standards specifications as well as observations during our
+implementation.
 
 # Background
 
