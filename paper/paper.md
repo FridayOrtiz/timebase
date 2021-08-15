@@ -41,7 +41,6 @@ monofont: DejaVuSansMono
 
 \Begin{multicols}{2}
 
-
 # Abstract {-}
 
 Many papers focus on creating covert channels for the purpose of data
@@ -53,7 +52,6 @@ channels make assumptions about extant arbitrary infiltration channels being
 available for loading the tooling necessary to establish the outbound
 channel. We are proposing studying and implementing an NTP-based covert
 channel for infiltrating unauthorized information into a secure network.
-
 
 # Introduction
 
@@ -137,7 +135,6 @@ The implementation will demonstrate our covert channel in our lab environment.
 Lastly, our conclusions and future work outlines further areas of expanding the
 NTP covert channels based on current standards specifications as well as
 observations during our implementation.
-
 
 # Background
 
@@ -470,7 +467,6 @@ server can embed into an NTP reply may reach devices inside this network.
     \label{fig:vendor_pool}
 \end{figure}
 
-
 [^vendor_ntp_pool]: The NTP Pool Project supports vendor specific zones within
 the pool.ntp.org domain. This allows vendors to pre-configure NTP server values
 in their configurations[@hansen2014vendorntp].
@@ -572,20 +568,46 @@ Considerations, of RFC7822:
 
 ## Detection
 
-Detection of our specific implementation is fairly straightforward, simply
-look for an NTP packet that contains the ELF magic number. This marks the 
-beginning of the binary we are sending over, and any further connections to
-this NTP server can be blocked. However, the use of encryption would render
-the contents opaque to any signature matching.
+Detection of our specific implementation falls into three categories: 
 
-Another way to detect the channel would be to exhaustively list the known and
-allows NTP extensions on your network and flag anything not on that list.  You
-would need to ensure that these extensions are strongly recognizable and have
-some structure. Keep in mind that an attacker can set the field type and
-structure at will, so you need a way of positively identifying known good
-extensions. If your network relies on an extension that appears the same as
-random encrypted data, you may be forced to rearchitect NTP or you will 
-not be able to block this channel.
+1. Traffic analysis
+1. Packet analysis
+1. Endpoint analysis
+ 
+As described in section 4.1, centralized enterprise computing environments
+typically provide an NTP hierarchy, and configure endpoints to leverage that
+hierarchy exclusively. Using traffic analysis tools such as Zeek[@zeek],
+formerly Bro, rules can be configured to monitor and track connections to
+upstream NTP servers, high connection duration, and high number of bytes
+exchanged. These would be considered high-quality indicators of compromise. 
+
+In the second catagory, packet analysis techniques that focus on the NTP
+extension header would be effective detection mechanisms. For example, a
+detection that looks for an NTP packet that contains the ELF magic number. This
+marks the beginning of the binary we are sending over, and any further
+connections to this NTP server can be blocked. However, the use of encryption
+would render the contents opaque to any signature matching. Packet analysis
+techniques could also leverage the fact that the most prevalent legitimate use
+of the extension header is for AutoKey cryptography, codified in
+RFC5906[@rfc5906]. Packet analysis that detects extension headers that do not
+comply with RFC5906[@rfc5906] would therefore yield a high-quality indicator of
+compromise. 
+
+Extending this concept further, another way to detect the channel would be to
+exhaustively list the known and allowed NTP extensions on a network and alert
+on any packets that do not conform to the corresponding standards.  This
+approach would rely on perfect documentation of consistently-implemented
+standards for extension header use cases. This form of detection is therefore
+relatively brittle, and since the attacker can set the field type and structure
+at will, they could conceivably counter by mimicking a legitimate use case. If
+your network relies on an extension that appears the same as random encrypted
+data, you may be forced to rearchitect NTP or you will not be able to block
+this channel.
+
+Lastly, configuration changes to endpoints that are needed to implement the
+channel and funnel NTP traffic to attacker-controlled NTP architecture could be
+detected through log events, or with an Endpoint Detection and Response (EDR)
+product.
 
 # Conclusions and Future Work
 
@@ -615,8 +637,6 @@ authentication in addition to guaranteeing cryptographicly that packet data has
 not been alterted between the server and client. The packet structure is
 limited to a small number of fields each with a specific purpose. This can be
 promising in limiting the typical usage of optional fields for covert channels.
-
-\vfill
 
 \pagebreak
 # References {-}
